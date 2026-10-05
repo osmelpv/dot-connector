@@ -12,4 +12,4 @@ inspection/
 inspection-helper/
 .codex/
 .mcp.json
-opencode.json
+/opencode.json

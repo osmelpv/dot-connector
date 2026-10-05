@@ -1,11 +1,18 @@
 {
   "name": "dot-connector",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A toolkit that lets dot observe and control the same visible terminal window the user works in.",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
-  "files": ["src/", "profiles/", "scripts/", "test/", "README.md", "docs/"],
+  "files": [
+    "src/",
+    "profiles/",
+    "scripts/",
+    "test/",
+    "README.md",
+    "docs/"
+  ],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "build": "node scripts/build.mjs",
@@ -14,6 +21,11 @@
     "start": "node src/server.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
-  "dependencies": {"@modelcontextprotocol/sdk": "1.27.1", "zod": "3.25.76"},
-  "engines": {"node": ">=20"}
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "zod": "3.25.76"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
