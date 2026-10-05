@@ -26,3 +26,7 @@ Start with one working terminal integration and a small set of verified actions.
 ## License
 
 No license has been granted at this stage. Publishing this repository does not grant general permission to reuse, modify, or redistribute its contents. Licensing will be decided before a public release.
+
+## Prototype development
+
+See [current evidence and limitations](docs/PROTOTYPE.md) and the [verification, pinned distribution, and rollback cycle](docs/DEVELOPMENT.md). Local checks: `npm ci --ignore-scripts` followed by `npm run verify`. These checks do not launch a visible terminal or call an AI provider.
