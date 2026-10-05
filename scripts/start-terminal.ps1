@@ -1,6 +1,9 @@
 param([string]$WezTerm, [string]$StateDir, [string]$ProjectDirectory, [string]$Distribution = 'Ubuntu')
 $ErrorActionPreference = 'Stop'
 if (-not $WezTerm -or -not (Test-Path -LiteralPath $WezTerm)) { throw 'Provide an existing portable wezterm.exe path.' }
+$guiExe = Join-Path (Split-Path -Parent $WezTerm) 'wezterm-gui.exe'
+if (-not (Test-Path -LiteralPath $guiExe)) { throw 'Matching wezterm-gui.exe is required.' }
+if ((& $WezTerm --version).Trim() -ne 'wezterm 20240203-110809-5046fc22') { throw 'This prototype is verified only with WezTerm 20240203-110809-5046fc22.' }
 if (-not $StateDir) { throw 'StateDir required.' }
 if (-not $ProjectDirectory -or $ProjectDirectory -notmatch '^/[a-zA-Z0-9_./-]+$') { throw 'An explicit WSL project directory without spaces is required.' }
 if ($Distribution -notmatch '^[a-zA-Z0-9_-]+$') { throw 'Unsupported distribution name.' }
@@ -38,16 +41,22 @@ $config = Join-Path $StateDir 'wezterm.lua'
 # A visible interactive terminal is explicitly requested; no hidden GUI launch.
 $arguments = @('--config-file', ('"' + $config + '"'), 'start', '--always-new-process', '--no-auto-connect', '--class', $class, '--', 'wsl.exe', '-d', $Distribution, '--cd', $ProjectDirectory, '--', 'bash', '--noprofile', '--norc', '-i')
 [IO.File]::WriteAllText((Join-Path $StateDir 'launch-attempt.json'),(@{className=$class;status='attempted'} | ConvertTo-Json))
-$gui = Start-Process -FilePath $WezTerm -ArgumentList $arguments -PassThru
+$gui = Start-Process -FilePath $guiExe -ArgumentList $arguments -PassThru
 [IO.File]::WriteAllText((Join-Path $StateDir 'launch-attempt.json'),(@{className=$class;status='spawned';launcherPid=$gui.Id} | ConvertTo-Json))
 $deadline = [DateTime]::UtcNow.AddSeconds(20)
+$previousSocket = $env:WEZTERM_UNIX_SOCKET
+try {
 do {
   Start-Sleep -Milliseconds 250
+  try { $identity = & (Join-Path $PSScriptRoot 'read-gui-identity.ps1') -GuiPid $gui.Id | ConvertFrom-Json } catch { continue }
+  if ($identity.className -ne $class -or $identity.guiExecutable -ne $guiExe) { throw 'Unexpected GUI identity.' }
+  $env:WEZTERM_UNIX_SOCKET = $identity.socketPath
   $raw = & $WezTerm cli --no-auto-start --class $class list --format json 2>$null
   if ($LASTEXITCODE -eq 0) { $panes = @($raw | ConvertFrom-Json); if ($panes.Count -eq 1) { break } }
 } while ([DateTime]::UtcNow -lt $deadline)
 if ($panes.Count -ne 1) { throw 'No unique dedicated pane discovered; do not retry launch blindly.' }
-$state = @{session=$session;className=$class;paneId=$panes[0].pane_id;windowId=$panes[0].window_id;guiLauncherPid=$gui.Id}
+$state = @{session=$session;className=$class;paneId=$panes[0].pane_id;windowId=$panes[0].window_id;guiPid=$identity.guiPid;guiStartTicks=$identity.guiStartTicks;guiExecutable=$identity.guiExecutable;socketPath=$identity.socketPath}
 [IO.File]::WriteAllText((Join-Path $StateDir 'session.json'),($state | ConvertTo-Json))
 & $WezTerm cli --no-auto-start --class $class set-window-title --window-id $state.windowId 'dot-connector | Ctrl+Shift+F12 pause | Ctrl+Shift+F11 resume'
 $state | ConvertTo-Json
+} finally { $env:WEZTERM_UNIX_SOCKET = $previousSocket }

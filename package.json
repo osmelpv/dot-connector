@@ -1,6 +1,6 @@
 {
   "name": "dot-connector",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A toolkit that lets dot observe and control the same visible terminal window the user works in.",
   "private": true,
   "license": "UNLICENSED",
