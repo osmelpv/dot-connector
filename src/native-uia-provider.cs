@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 
 namespace DotConnector.Native {
   public sealed class Target {
@@ -111,6 +112,23 @@ namespace DotConnector.Native {
     }
     public static void CheckOwnIntegrityForTest() {
       using(Process own=Process.GetCurrentProcess())CheckIntegrity(own.Id,"READER");
+    }
+    public static void AssertManualEmptyPrompt(Target requested) {
+      try {
+        stage="MANUAL_EMPTY_PROMPT_REQUIRED";var elapsed=Stopwatch.StartNew();Target target=Copy(requested);
+        AutomationElement pane=Resolve(target,elapsed);object value;
+        stage="UIA_TEXT_PATTERN_UNAVAILABLE";Require(pane.TryGetCurrentPattern(TextPattern.Pattern,out value));
+        var pattern=(TextPattern)value;var selection=pattern.GetSelection();stage="MANUAL_SELECTION_NOT_EMPTY";
+        Require(selection!=null && selection.Length==1 && selection[0].CompareEndpoints(TextPatternRangeEndpoint.Start,selection[0],TextPatternRangeEndpoint.End)==0);
+        var visible=pattern.GetVisibleRanges();stage="MANUAL_CARET_NOT_VISIBLE";
+        Require(visible!=null && visible.Length<=64 && visible.Any(range=>range.CompareEndpoints(TextPatternRangeEndpoint.Start,selection[0],TextPatternRangeEndpoint.Start)<=0 && range.CompareEndpoints(TextPatternRangeEndpoint.End,selection[0],TextPatternRangeEndpoint.Start)>=0));
+        var line=selection[0].Clone();line.ExpandToEnclosingUnit(TextUnit.Line);
+        stage="MANUAL_EMPTY_PROMPT_REQUIRED";Require(line.GetText(128).TrimEnd(' ','\r','\n')=="DOT_WRITE_READY>");
+        var expected=line.Clone();expected.MoveEndpointByRange(TextPatternRangeEndpoint.End,line,TextPatternRangeEndpoint.Start);
+        Require(expected.MoveEndpointByUnit(TextPatternRangeEndpoint.End,TextUnit.Character,"DOT_WRITE_READY> ".Length)=="DOT_WRITE_READY> ".Length);
+        Require(expected.CompareEndpoints(TextPatternRangeEndpoint.End,selection[0],TextPatternRangeEndpoint.Start)==0);
+        Resolve(target,elapsed);CheckWindow(target);Fresh(elapsed);
+      }catch(NativeReadException){throw;}catch{throw new NativeReadException(stage ?? "MANUAL_INPUT_GUARD_REFUSED");}
     }
     static void CheckWindow(Target target) {
       IntPtr hwnd=Handle(target); uint actualPid;

@@ -1,5 +1,13 @@
 # Verification status — 2026-10-06
 
+## Native terminal: user-run fixed-text write passed
+
+The user reported `PASS`, diagnostic `PENDING_MARKER_VISIBLE_NO_ENTER`, phase `DISPATCHED_NO_ENTER`, **28 input events**, and **410 ms**. This confirms the fixed marker was observed pending without Enter in the manually selected synthetic terminal. It is user-supplied manual evidence, not autonomous agent execution or a dot-to-native MCP roundtrip.
+
+An earlier write was refused with `PINNED_TARGET_CHANGED` before dispatch. A fresh user-run read passed in 227 ms; only HWND differed from the previous pin, while PID and process start time matched. The private pin was updated only after that explicit manual selection. No guard was removed. The successful write's persistent attempt lock and journal remain consumed and untouched; no input cleanup or retry was performed.
+
+The writer and guards passed independent source review before delivery. Offline C# compilation and no-GUI layout/request validation passed. The tested writer DLL SHA-256 is `16f33965631fc960be7d6d302c73ea54268c1b59ac7c142f6b5e012720845583`; EXE SHA-256 is `61a0c1b3d631fb992dd58aa9d07b1dc770313694df102d26831d72d5dbe874ce`. The underlying focus-check/SendInput race remains non-atomic. Cancelling cannot retract already queued input; partial or unconfirmed outcomes must not trigger automatic retries.
+
 ## Native terminal: user-run visible-marker read passed
 
 The user reported a successful manual run after the token-query correction. The result was `PASS`, diagnostic `VISIBLE_MARKER_LINE_MATCHED`, source `TextPattern.GetVisibleRanges`, `truncated:false`, and elapsed time **261 ms** (excluding the selection countdown). The returned HWND, PID and process start ticks identify the tested terminal; the exact user-provided JSON is retained in ignored local evidence, not published as session configuration.
@@ -18,7 +26,7 @@ All **28 project tests** pass, with JS/JSON build checks, source hashing, packag
 
 `npm run build` does not compile C#. Windows compilation was a separate offline step. User-tested artifacts are in the private Windows workspace `.runtime/manual-native-test`, outside WSL `dist` and the package. The older `.runtime/native-source-build` contains previous build artifacts and must not be confused with the tested manual version.
 
-Final manual provider source SHA-256:
+Earlier read-only probe provider source SHA-256 (before writer guards):
 `ce9f38f6081111a6894c2905df154ac2a5432ffd4e8d1f83e8b94c3274c432e1`
 
 User-tested DLL SHA-256:
@@ -27,10 +35,12 @@ User-tested DLL SHA-256:
 User-tested manual EXE SHA-256:
 `4b00a70f537e9013770f3e5a9179e32753191867cdae6b07a85187a3e5103e3d`
 
-## Remaining gates and smallest next test
+## Remaining gates and feasible integration work
 
-Automatic native integration remains disabled: this executor still lacks the supported computer-use runtime. The generic host remains compiled with native reads disabled; the separate user-run manual probe is not a workaround for agent execution. The manual read passed, but cancellation during a genuinely hung UIA call and broader target/refusal cases remain unverified. No claim that every timeout/security finding is closed is made.
+Automatic native integration remains disabled: this executor lacks the supported computer-use runtime. The generic host still refuses native execution; the separate user-run probes must not be used as an agent bypass. Manual read/write success does not supply autonomous runtime access. No dot-to-native roundtrip is established.
 
-The smallest future keyboard experiment is a separately reviewed **user-run, single-action** test in the same empty synthetic terminal. It would revalidate exact HWND/PID/start-time/pane and foreground immediately before dispatch, require fresh explicit human enable with a short lifetime, and type only one fixed printable marker without Enter. A bounded read would inspect the pending line; submit must remain a separate later authorization. No automatic retries, global hooks, focus changes or elevation. This proposal is not implemented or authorized as an automatic route.
+The next product increment can be prepared entirely without UI execution: a capability/status response distinguishing manual evidence from runtime availability, strict MCP request validation and target/session binding, operation state transitions for pause/cancellation/unknown outcomes, and fixture-based integration tests. An unavailable native runtime must return an explicit unavailable result before spawning any native worker. The reviewed manual writer must remain outside the production MCP dispatch path. This increment is proposed, not implemented in this consolidation.
 
-Before autonomous keyboard testing, a supported runtime must be available and the user must explicitly authorize that target/action. A successful manual read alone does not supply that authorization. Work is stopped after local consolidation, with no UI actions or background task running. No push was attempted; publication approval remains unresolved.
+Actual automatic native read/write integration requires the supported runtime and an authorized target/action. Still unverified: cancellation during a genuinely hung UIA call, broader UIA target/refusal cases, detection of human intervention, and atomic pane-specific dispatch (SendInput cannot provide the last guarantee). Do not promise human typing automatically cancels queued input. Paste and submit must remain separate; no submit test has been performed on this native target.
+
+Current deliverable is a local prototype plus manual native feasibility evidence. No new GUI actions, input, dependency installation, credential changes, push or publication occurred in this consolidation. See MANUAL-NATIVE-WRITE.md for the manual procedure and its limits.
