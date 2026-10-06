@@ -17,12 +17,23 @@ if ($luaDir.Contains("'") -or $luaDir.Contains("`n")) { throw 'Unsupported state
 $lua = @"
 local wezterm = require 'wezterm'
 local pause = '$luaDir/PAUSED'
+local enabled = '$luaDir/INPUT_ENABLED'
+local epoch_path = '$luaDir/INPUT_EPOCH'
+wezterm.on('update-right-status', function(window, pane)
+  local f = io.open(pause, 'r')
+  if f then f:close(); window:set_right_status('PAUSED | Ctrl+Shift+F11 to resume') end
+end)
 wezterm.on('dot-pause', function(window, pane)
   local f = assert(io.open(pause, 'w')); f:write('human pause'); f:close()
   window:set_right_status('PAUSED | Ctrl+Shift+F11 to resume')
 end)
 wezterm.on('dot-resume', function(window, pane)
-  os.remove(pause)
+  local old = assert(io.open(epoch_path, 'r')); local n = tonumber(old:read('*a')); old:close()
+  assert(n and n >= 0 and n < 999999999999999 and n % 1 == 0, 'Invalid input epoch')
+  local value = string.format('%.0f', n + 1)
+  local counter = assert(io.open(epoch_path, 'w')); assert(counter:write(value)); assert(counter:close())
+  local f = assert(io.open(enabled, 'w')); assert(f:write(value)); assert(f:close())
+  assert(os.remove(pause))
   window:set_right_status('Agent enabled | Ctrl+Shift+F12 to pause')
 end)
 return {
@@ -38,6 +49,8 @@ return {
 "@
 $config = Join-Path $StateDir 'wezterm.lua'
 [IO.File]::WriteAllText($config,$lua)
+[IO.File]::WriteAllText((Join-Path $StateDir 'PAUSED'),'Input starts paused; human must explicitly resume.')
+[IO.File]::WriteAllText((Join-Path $StateDir 'INPUT_EPOCH'),'0')
 # A visible interactive terminal is explicitly requested; no hidden GUI launch.
 $arguments = @('--config-file', ('"' + $config + '"'), 'start', '--always-new-process', '--no-auto-connect', '--class', $class, '--', 'wsl.exe', '-d', $Distribution, '--cd', $ProjectDirectory, '--', 'bash', '--noprofile', '--norc', '-i')
 [IO.File]::WriteAllText((Join-Path $StateDir 'launch-attempt.json'),(@{className=$class;status='attempted'} | ConvertTo-Json))
