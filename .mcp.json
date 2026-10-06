@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dot-connector": {
+      "command": "/usr/bin/node",
+      "args": [
+        "src/plugin-server.mjs"
+      ],
+      "cwd": "."
+    }
+  }
+}

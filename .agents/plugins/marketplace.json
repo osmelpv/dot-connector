@@ -1,0 +1,20 @@
+{
+  "name": "dot-connector-local",
+  "interface": {
+    "displayName": "dot-connector experimental"
+  },
+  "plugins": [
+    {
+      "name": "dot-connector",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

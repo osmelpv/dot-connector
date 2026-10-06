@@ -17,7 +17,7 @@ OpenCode, Claude Code, and GentleShell are initial integration targets, rather t
 
 ## Project status
 
-Early development. A local prototype is being evaluated; end-to-end access from dot and compatibility with terminal applications are not yet verified. There is no supported installation procedure or release available yet.
+Early development. A local prototype is being evaluated; end-to-end access from dot and compatibility with terminal applications are not yet verified. Version 0.1.4 packages an experimental WSL plugin with a diagnostic-only MCP entrypoint. See [installation and rollback](docs/INSTALL.md). Terminal control is not enabled by installation; publication and runtime registration must be verified separately.
 
 ## Development approach
 

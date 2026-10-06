@@ -1,0 +1,11 @@
+{
+  "name": "dot-connector",
+  "version": "0.1.4",
+  "description": "Experimental local terminal connector. This plugin release exposes installation status only; terminal control is not enabled.",
+  "author": {
+    "name": "osmelpv"
+  },
+  "repository": "https://github.com/osmelpv/dot-connector",
+  "license": "UNLICENSED",
+  "mcpServers": "./.mcp.json"
+}
