@@ -22,7 +22,7 @@ An earlier dedicated visible WezTerm test passed through the existing executor a
 
 ## Local verification and artifacts
 
-All **28 project tests** pass, with JS/JSON build checks, source hashing, package allowlist and heuristic secret audit. Native identity/freshness/UTF-16 cases remain simulated; supervisor deadline/cancellation uses owned stalled fixtures. Windows no-GUI checks additionally verified the host codec, owned-process token query and marker matching. No dependencies, permissions, policy or credentials were changed; no FlaUI/NuGet package was installed.
+All **35 project tests** pass, with JS/JSON build checks, source hashing, package allowlist and heuristic secret audit. Native identity/freshness/UTF-16 cases remain simulated; supervisor deadline/cancellation uses owned stalled fixtures. Windows no-GUI checks additionally verified the host codec, owned-process token query and marker matching. No dependencies, permissions, policy or credentials were changed; no FlaUI/NuGet package was installed.
 
 `npm run build` does not compile C#. Windows compilation was a separate offline step. User-tested artifacts are in the private Windows workspace `.runtime/manual-native-test`, outside WSL `dist` and the package. The older `.runtime/native-source-build` contains previous build artifacts and must not be confused with the tested manual version.
 
@@ -35,12 +35,18 @@ User-tested DLL SHA-256:
 User-tested manual EXE SHA-256:
 `4b00a70f537e9013770f3e5a9179e32753191867cdae6b07a85187a3e5103e3d`
 
-## Remaining gates and feasible integration work
+## Current integration and remaining gates
 
-Automatic native integration remains disabled: this executor lacks the supported computer-use runtime. The generic host still refuses native execution; the separate user-run probes must not be used as an agent bypass. Manual read/write success does not supply autonomous runtime access. No dot-to-native roundtrip is established.
+The 0.1.5 source includes a separately user-launched native MCP adapter with bounded read, human-approved paste, separate submit and pause. Persistent claims coordinate the same HWND/process across participating installations; exact-operation grants expire and consumed operation IDs cannot be replayed. The default plugin manifest remains diagnostic-only.
 
-The next product increment can be prepared entirely without UI execution: a capability/status response distinguishing manual evidence from runtime availability, strict MCP request validation and target/session binding, operation state transitions for pause/cancellation/unknown outcomes, and fixture-based integration tests. An unavailable native runtime must return an explicit unavailable result before spawning any native worker. The reviewed manual writer must remain outside the production MCP dispatch path. This increment is proposed, not implemented in this consolidation.
+The user reported SELECT/READ/PASTE/READ success through this adapter, with the same target and UIA pane before and after, a visible pending DOT_WRITE_TEST marker, and truncated:false. No SUBMIT was performed. This is manual MCP-to-terminal evidence, not autonomous dot invocation. QUIT was requested but closure is not confirmed. No current target, session ID, grant or claim is included in publication.
 
-Actual automatic native read/write integration requires the supported runtime and an authorized target/action. Still unverified: cancellation during a genuinely hung UIA call, broader UIA target/refusal cases, detection of human intervention, and atomic pane-specific dispatch (SendInput cannot provide the last guarantee). Do not promise human typing automatically cancels queued input. Paste and submit must remain separate; no submit test has been performed on this native target.
+The executor still lacks the permitted computer-use runtime for autonomous native invocation; manual success does not remove that boundary. Pending native validation includes actual submit, cancellation during a genuinely hung UIA call and broader refusal cases. Human typing is not automatically detected, and checking focus before SendInput cannot make dispatch atomic. No automatic retry, rearm or cleanup input is allowed.
 
-Current deliverable is a local prototype plus manual native feasibility evidence. No new GUI actions, input, dependency installation, credential changes, push or publication occurred in this consolidation. See MANUAL-NATIVE-WRITE.md for the manual procedure and its limits.
+OpenCode 1.18.33 previously connected the diagnostic plugin from ArtisanFeed with inline configuration and other MCPs disabled only for that process. Git state, diffs and configuration hashes were unchanged. That consumption test did not call a model or enable native control. Further release installation checks run in isolated directories, not the ArtisanFeed worktree.
+
+## Background-operation requirement: not met
+
+The requested product behavior is selecting an authorized terminal and operating it while it is inactive on another monitor, without stealing focus from the human. This native adapter does not meet that requirement: it requires the exact target to be foreground and focused, and SendInput targets the interactive input stream. A second monitor does not isolate keyboard focus. No SetForegroundWindow or other focus-stealing workaround is introduced. Foreground-required remains an explicit experimental limitation.
+
+A future background route needs an authorized terminal-specific pane IPC or an owned console input channel, plus bounded reads and explicit target/session ownership. It must demonstrate input/output on the inactive target while the foreground application receives no injected input and retains focus. Current manual PASS evidence does not prove that behavior.

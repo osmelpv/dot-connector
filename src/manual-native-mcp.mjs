@@ -23,7 +23,7 @@ try{
  await countdown();const target=nativeTargetSchema.parse(await provider.selectManualTarget({}));
  await writeFile(path.join(root,'target.json'),JSON.stringify(target),{flag:'wx'});
  console.log(JSON.stringify({selected:target}));
- client=new Client({name:'human-native-integration-check',version:'0.1.5-dev'});
+ client=new Client({name:'human-native-integration-check',version:'0.1.5'});
  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'native-integration-server.mjs'),'--human-launched'],cwd:root,env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,TMP:process.env.TMP,USERPROFILE:process.env.USERPROFILE}}));
  console.log(JSON.stringify(await client.listTools()));
  while(!cancelled){

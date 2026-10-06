@@ -1,4 +1,4 @@
-# Pinned WSL installation (experimental 0.1.4)
+# Pinned WSL installation (experimental 0.1.5)
 
 This release is a local/repo plugin package, not an npm publication or a listing in the universal plugin directory. Its `.codex-plugin/plugin.json` compatibility manifest references `.mcp.json`. The MCP command is the existing WSL `/usr/bin/node` (Node 22), with `cwd` set to the installed plugin root. The entrypoint exposes only `terminal_status`: it reports version and unavailable terminal capabilities. It does not inspect or control terminals, inherit `DOT_STATE`/`DOT_WEZTERM`, create session locks, spawn native workers or touch a consumer application. Concurrent diagnostic servers therefore cannot share a target: neither can bind one.
 
@@ -21,7 +21,7 @@ npm run smoke:plugin
 
 ## Registration versus installation
 
-For a compatible local Codex client, the repository contains `.agents/plugins/marketplace.json`, whose local source is the release root. Register that exact local marketplace through the client's supported plugin interface, then install `dot-connector` and start a new session. Client support and registration are separate from the SDK smoke test. Do not modify internal caches or invent configuration keys to force loading. The current executor has no WSL Codex CLI or callable custom-plugin registration action, so it can verify the isolated installed server but cannot claim the running dot has registered it.
+For a compatible local Codex client, the repository contains `.agents/plugins/marketplace.json`, whose local source is the release root. Register that exact local marketplace through the client's supported plugin interface, then install `dot-connector` and start a new session. Client support and registration are separate from the SDK smoke test. Do not modify internal caches or invent configuration keys to force loading. OpenCode 1.18.33 has successfully connected the diagnostic MCP from the ArtisanFeed directory using process-only inline configuration. This does not depend on Codex CLI. No persistent client registration or autonomous native control was established.
 
 For a stdio MCP client, the concrete launch configuration is `/usr/bin/node` with an absolute argument to the installed `src/plugin-server.mjs`; use the installed root as working directory and no terminal-state environment variables. An SDK handshake is not proof of client registration. A cloud client cannot reach local stdio merely because the package exists; no public listener, tunnel or credential is created here.
 
@@ -33,9 +33,15 @@ No session configuration is copied in this release. Future control integration m
 
 ## ArtisanFeed first check
 
-Run only the isolated release's `smoke:plugin` from an external consumer fixture. Do not edit ArtisanFeed, use its `node_modules`, change Node/Docker/app dependencies, read its credentials, run its app or attach to its terminals. Report this as isolated consumer validation, not an ArtisanFeed-installed or dot-connected result. A real client registration in the ArtisanFeed context remains a separate observable step using supported tooling.
+Run only the isolated release's `smoke:plugin` from an external consumer fixture. Do not edit ArtisanFeed, use its `node_modules`, change Node/Docker/app dependencies, read its credentials, run its app or attach to its terminals. Report this as isolated consumer validation, not an ArtisanFeed-installed or dot-connected result. A temporary OpenCode MCP connection from ArtisanFeed was verified with other MCPs disabled for that process; Git diffs and configuration hashes were unchanged. Persistent registration remains a separate step.
 
 ## Primary references
 
 - [OpenAI plugin packaging](https://developers.openai.com/plugins/build/plugins) and [compatibility manifest specification](https://github.com/openai/plugins/blob/main/.agents/skills/plugin-creator/references/plugin-json-spec.md).
 - [Supported plugin surfaces and installation](https://learn.chatgpt.com/docs/plugins). Product/runtime policy still applies to plugin tools.
+
+## Native manual adapter in 0.1.5
+
+The default plugin still exposes only diagnostic `terminal_status`. The separately user-launched Windows adapter exposes `terminal_status`, `terminal_snapshot`, `terminal_input` (paste or separately approved submit) and `terminal_pause`. It is not automatically loaded by `.mcp.json`.
+
+From a pinned Windows source checkout with existing Windows Node/npm and .NET Framework x64, run `scripts/prepare-native-manual.ps1 -Destination <new-absolute-directory>`. This compiles the host, installs the unchanged locked dependencies into that new directory and runs a no-GUI self-test. It never launches the consumer. It refuses existing destinations and does not copy session state or credentials. Keep the source checkout and generated hashes for provenance; build output is separate from any running test. Run the generated `manual-native-mcp.mjs` only under the manual procedure in NATIVE-MCP-INTEGRATION.md. No consumed claim or attempt is automatically cleared.

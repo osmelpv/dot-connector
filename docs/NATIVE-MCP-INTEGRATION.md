@@ -1,4 +1,4 @@
-# Manual native MCP integration (development)
+# Manual native MCP integration (experimental 0.1.5)
 
 This is a user-launched Windows synthetic-terminal test route, separate from the released diagnostic plugin. The server now exposes real adapter operations for `terminal_snapshot`, `terminal_input` (paste or separate submit), `terminal_pause`, and metadata-only `terminal_status`. MCP protocol tests use a simulated native provider; they do not establish actual UI behavior. The agent must not invoke the manual route to bypass an unavailable supported computer-use runtime.
 
@@ -29,4 +29,10 @@ PAUSE changes only the manual control file and cancels owned work. Ctrl+C stops 
 
 ## Evidence still needed
 
-Source review, compiler checks and simulated-provider MCP tests are complete; real MCP-to-UIA/SendInput validation remains pending the user's run. Earlier standalone manual read/write PASS results are not evidence for this new route. No OpenCode/ArtisanFeed configuration or published release was changed to enable native control. Dot invocation remains subject to a supported runtime and its policy, independently of the implementation and manual test.
+The user reported a real manual SELECT/READ/PASTE/READ pass through this MCP route: the initial visible prompt was empty, DOT_WRITE_TEST was dispatched after ARM PASTE, and a subsequent bounded read observed DOT_WRITE_READY> DOT_WRITE_TEST with the same target and pane, truncated:false. No SUBMIT occurred. This is user-provided manual evidence, not agent replay or autonomous dot control. The user was instructed to QUIT, but closure has not been confirmed. Source review, compiler checks, six validate-only codec checks and 35 project tests also passed. Real submit behavior, cancellation during a hung UIA call, and broader UI compatibility remain unverified. No OpenCode/ArtisanFeed configuration or published release was changed to enable native control. Dot invocation remains subject to a supported runtime and its policy, independently of the implementation and manual test.
+
+## Background-operation requirement: not met
+
+The requested product behavior is selecting an authorized terminal and operating it while it is inactive on another monitor, without stealing focus from the human. This native adapter does not meet that requirement: it requires the exact target to be foreground and focused, and SendInput targets the interactive input stream. A second monitor does not isolate keyboard focus. No SetForegroundWindow or other focus-stealing workaround is introduced. Foreground-required remains an explicit experimental limitation.
+
+A future background route needs an authorized terminal-specific pane IPC or an owned console input channel, plus bounded reads and explicit target/session ownership. It must demonstrate input/output on the inactive target while the foreground application receives no injected input and retains focus. Current manual PASS evidence does not prove that behavior.
