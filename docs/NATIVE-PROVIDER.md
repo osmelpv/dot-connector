@@ -1,3 +1,7 @@
+> Current evidence: the user-run manual visible-marker read passed (261 ms). See [STATUS](STATUS.md). Historical source-only/compile-disabled checkpoints below do not describe an autonomous integration; automatic native use remains disabled.
+
+> Update: the compile-disabled host/codec is now integrated and tested without UIA. See [NATIVE-HOST](NATIVE-HOST.md) for current evidence and gates; earlier missing-host statements below describe the previous checkpoint. Live native integration remains disabled.
+
 # Built-in UIA provider source — compiled, not executed
 
 `src/native-uia-provider.cs` is a small C# library implementing the native-reader response shapes. It has no executable entry point. Its only public provider operations are `Observe(Target)` and `GetVisibleRanges(Target, maxRanges, maxCharacters)`; no MCP server or automatic launch path is added. The existing JavaScript contract remains the caller-side boundary. A reviewed host/codec bridge still needs to serialize the DTOs and supervise the library before any runtime integration.

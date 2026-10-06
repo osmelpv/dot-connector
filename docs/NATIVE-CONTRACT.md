@@ -1,3 +1,7 @@
+> Current evidence: the user-run manual visible-marker read passed (261 ms). See [STATUS](STATUS.md). Historical source-only/compile-disabled checkpoints below do not describe an autonomous integration; automatic native use remains disabled.
+
+> Update: the compile-disabled host/codec is now integrated and tested without UIA. See [NATIVE-HOST](NATIVE-HOST.md) for current evidence and gates; earlier missing-host statements below describe the previous checkpoint. Live native integration remains disabled.
+
 # Native terminal reader contract (simulation only)
 
 `src/native-reader.mjs` is an isolated provider contract. It does not call Windows, load UI Automation, install dependencies, or register a new MCP tool. The existing MCP transport and terminal profiles are unchanged. A Windows built-in or FlaUI provider can implement the same two methods after source/dependency review and approval of the runtime path. The Windows/.NET provider now has compiled but unexecuted source; see [its audit and runtime gates](NATIVE-PROVIDER.md). No live provider is connected.

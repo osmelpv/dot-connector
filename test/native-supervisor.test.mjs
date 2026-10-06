@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {NativeWorkerSupervisor} from '../src/native-supervisor.mjs';
+import {NativeWorkerSupervisor,workerDiagnostic} from '../src/native-supervisor.mjs';
 import {NativeReader} from '../src/native-reader.mjs';
 const target={hwnd:'123',pid:7,startTimeTicks:'123456',panePath:[[42,7]]};
 async function fixture(t){
@@ -26,4 +26,18 @@ test('supervisor explicit cancellation terminates its owned child without queue 
   let pid;for(let i=0;i<100;i++){try{pid=Number(await readFile(path.join(dir,'owned-pid'),'utf8'));break;}catch{await new Promise(r=>setTimeout(r,5));}}
   assert.ok(pid);await assert.rejects(provider.observe({target}),/busy/);assert.equal(provider.cancel(),true);await rejected;
   assert.throws(()=>process.kill(pid,0),e=>e.code==='ESRCH');assert.equal(provider.active,null);assert.equal(provider.cancel(),false);
+});
+
+test('native executable supervision refuses WSL interop and ambiguous worker selection',()=>{
+  assert.throws(()=>new NativeWorkerSupervisor({nativeHostPath:'relative.exe'}),/direct Windows/);
+  assert.throws(()=>new NativeWorkerSupervisor({nativeHostPath:'C:\\native\\host.exe',workerPath:'/tmp/worker.mjs'}),/direct Windows/);
+  if(process.platform!=='win32')assert.throws(()=>new NativeWorkerSupervisor({nativeHostPath:'C:\\native\\host.exe'}),/WSL interop/);
+});
+
+test('manual diagnostics distinguish deadline and refusal without propagating unknown payloads',()=>{
+  assert.equal(workerDiagnostic(Error('worker deadline exceeded')),'WORKER_DEADLINE_EXCEEDED');
+  assert.equal(workerDiagnostic(Error('worker failed')),'WORKER_EXIT_FAILED');
+  assert.equal(workerDiagnostic(Error('invalid worker JSON response')),'WORKER_INVALID_JSON');
+  assert.equal(workerDiagnostic(Error('secret terminal contents')),'WORKER_START_OR_PROTOCOL_FAILED');
+  assert.equal(workerDiagnostic(undefined),'WORKER_START_OR_PROTOCOL_FAILED');
 });
