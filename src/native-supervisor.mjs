@@ -23,10 +23,12 @@ export class NativeWorkerSupervisor {
   }
   observe(args){return this.call('observe',args);}
   getVisibleRanges(args){return this.call('getVisibleRanges',args);}
+  selectManualTarget(args){return this.call('selectManualTarget',args);}
+  nativeWrite(args){return this.call('nativeWrite',args);}
   manualWrite(args){return this.call('manualWrite',args);}
   cancel(){if(this.active){this.active('worker cancelled');return true;}return false;}
   async call(method,args){
-    if(method!=='observe'&&method!=='getVisibleRanges'&&method!=='manualWrite')throw Error('unsupported worker method');
+    if(method!=='observe'&&method!=='getVisibleRanges'&&method!=='manualWrite'&&method!=='selectManualTarget'&&method!=='nativeWrite')throw Error('unsupported worker method');
     if(this.poisoned)throw Error('worker cleanup unconfirmed; supervisor disabled');
     if(this.active)throw Error('worker busy; no queue');
     const request=JSON.stringify({method,arguments:args});
