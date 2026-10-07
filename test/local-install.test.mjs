@@ -2,7 +2,7 @@ import {test} from 'node:test';import assert from 'node:assert/strict';import {m
 const exec=promisify(execFile);
 test('local archive installer consent, integrity, paths and isolated diagnostic lifecycle',async t=>{
  const parent=await mkdtemp(path.join(tmpdir(),'dot-local-install-test-'));t.after(()=>rm(parent,{recursive:true,force:true}));const bundle=path.join(parent,'bundle');await exec(process.execPath,['scripts/package-local.mjs',bundle]);
- const opts={root:path.join(parent,'project-install'),archive:path.join(bundle,'dot-connector-0.1.10-source.tar.gz'),manifest:path.join(bundle,'local-manifest.json')};
+ const opts={root:path.join(parent,'project-install'),archive:path.join(bundle,JSON.parse(await readFile(path.join(bundle,'local-manifest.json'),'utf8')).archive),manifest:path.join(bundle,'local-manifest.json')};
  const result=await installLocal(opts,{kernelRelease:'microsoft'});assert.equal(result.reason,'WINDOWS_PREPARATION_CONSENT_REQUIRED');await assert.rejects(access(opts.root),/ENOENT/);
  assert.equal((await installLocal(opts,{kernelRelease:'generic'})).reason,'NATIVE_LINUX_CONTROL_UNSUPPORTED');
  await assert.rejects(installLocal({...opts,root:'relative'}),/ABSOLUTE_PATH/);

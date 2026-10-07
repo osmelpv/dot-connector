@@ -30,7 +30,7 @@ test('native adapter requires exact human grant, separates paste/submit, and con
 test('persistent target claim excludes another installation and sibling pane',async()=>{
  const f=await fixture();try{
  const other=new NativeControl({target:{...target,panePath:[[1],[3]]},provider:f.provider,stateDir:path.join(f.dir,'other'),claimsDir:f.c.claims,simulation:true});
- await assert.rejects(other.open(),/EEXIST/);assert.equal(f.writes,0);
+ await assert.rejects(other.open(),/EEXIST|CLAIM_EXISTS/);assert.equal(f.writes,0);
  }finally{await f.cleanup();}
 });
 test('pause invalidates snapshots and cancels owned worker; unknown send is never retried',async()=>{

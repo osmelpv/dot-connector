@@ -41,3 +41,17 @@ test('manual diagnostics distinguish deadline and refusal without propagating un
   assert.equal(workerDiagnostic(Error('secret terminal contents')),'WORKER_START_OR_PROTOCOL_FAILED');
   assert.equal(workerDiagnostic(undefined),'WORKER_START_OR_PROTOCOL_FAILED');
 });
+
+test('shutdown closes the gate, reaps own worker and forbids new dispatch',async t=>{
+ const {provider,dir}=await fixture(t);
+ const running=provider.getVisibleRanges({target}),failed=assert.rejects(running,/cancelled/);
+ for(let i=0;i<100;i++){try{await readFile(path.join(dir,'owned-pid'));break;}catch{await new Promise(r=>setTimeout(r,5));}}
+ await provider.shutdown();await failed;
+ assert.equal(provider.active,null);await assert.rejects(provider.observe({target}),/permanently stopped/);
+});
+test('synchronous spawn failure settles completion; shutdown never hangs', {timeout:2000},async t=>{
+ const {provider}=await fixture(t);provider.command='invalid'+String.fromCharCode(0);
+ await assert.rejects(provider.observe({target}),/worker launch failed/);
+ await assert.rejects(provider.shutdown(),/cleanup unconfirmed/);
+ assert.equal(provider.completions.size,0);
+});

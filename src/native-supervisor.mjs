@@ -19,7 +19,7 @@ export class NativeWorkerSupervisor {
       this.command=process.execPath;this.args=[workerPath];this.cwd=path.dirname(workerPath);
     }
     if(!Number.isInteger(timeoutMs)||timeoutMs<20||timeoutMs>5000)throw Error('worker deadline out of bounds');
-    this.workerPath=workerPath;this.timeoutMs=timeoutMs;this.active=null;this.poisoned=false;
+    this.workerPath=workerPath;this.timeoutMs=timeoutMs;this.active=null;this.poisoned=false;this.stopped=false;this.completions=new Set();
   }
   observe(args){return this.call('observe',args);}
   getVisibleRanges(args){return this.call('getVisibleRanges',args);}
@@ -27,21 +27,29 @@ export class NativeWorkerSupervisor {
   nativeWrite(args){return this.call('nativeWrite',args);}
   manualWrite(args){return this.call('manualWrite',args);}
   cancel(){if(this.active){this.active('worker cancelled');return true;}return false;}
+  async shutdown(){
+    this.stopped=true;this.cancel();await Promise.all([...this.completions]);
+    if(this.active||this.poisoned)throw Error('worker cleanup unconfirmed; supervisor disabled');
+  }
   async call(method,args){
+    if(this.stopped)throw Error('worker permanently stopped');
     if(method!=='observe'&&method!=='getVisibleRanges'&&method!=='manualWrite'&&method!=='selectManualTarget'&&method!=='nativeWrite')throw Error('unsupported worker method');
     if(this.poisoned)throw Error('worker cleanup unconfirmed; supervisor disabled');
     if(this.active)throw Error('worker busy; no queue');
     const request=JSON.stringify({method,arguments:args});
     if(Buffer.byteLength(request)>16000)throw Error('worker request limit');
+    let complete;const completion=new Promise(resolve=>{complete=resolve;});this.completions.add(completion);
     return new Promise((resolve,reject)=>{
       const env={};for(const key of ['PATH','SystemRoot','WINDIR','TEMP','TMP'])if(process.env[key])env[key]=process.env[key];
-      const child=spawn(this.command,this.args,{cwd:this.cwd,stdio:['pipe','pipe','pipe'],windowsHide:true,shell:false,env});
+      let child;
+      try{child=spawn(this.command,this.args,{cwd:this.cwd,stdio:['pipe','pipe','pipe'],windowsHide:true,shell:false,env});}
+      catch{this.poisoned=true;complete();this.completions.delete(completion);reject(Error('worker launch failed'));return;}
       let failure=null,chunks=[],size=0,cleanupTimer;
       const abort=reason=>{
         if(failure)return;failure=reason;
         // Only the process object spawned above is terminated. Wait for close to settle.
         try{if(!child.kill('SIGKILL'))this.poisoned=true;}catch{this.poisoned=true;}
-        cleanupTimer=setTimeout(()=>{this.poisoned=true;reject(Error('worker cleanup unconfirmed; supervisor disabled'));},250);
+        cleanupTimer=setTimeout(()=>{this.poisoned=true;complete();this.completions.delete(completion);reject(Error('worker cleanup unconfirmed; supervisor disabled'));},250);
       };
       this.active=abort;
       const timer=setTimeout(()=>abort('worker deadline exceeded'),this.timeoutMs);
@@ -50,7 +58,7 @@ export class NativeWorkerSupervisor {
       child.stderr.resume(); // No raw exception or terminal-content logs.
       child.stdout.on('data',chunk=>{size+=chunk.length;if(size>131072){chunks=[];abort('worker output limit');}else if(!failure)chunks.push(chunk);});
       child.on('close',code=>{
-        clearTimeout(timer);clearTimeout(cleanupTimer);this.active=null;
+        clearTimeout(timer);clearTimeout(cleanupTimer);this.active=null;complete();this.completions.delete(completion);
         if(failure||code!==0){reject(Error(failure??'worker failed'));return;}
         try{const text=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));resolve(JSON.parse(text));}
         catch{reject(Error('invalid worker JSON response'));}

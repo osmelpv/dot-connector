@@ -28,11 +28,11 @@ export async function verifyBridgeInventory(root,manifest,sourceManifest,release
  const expected=sourceManifest;let totalBytes=0,directories=0;const deadline=performance.now()+30000;
  const budget=()=>{if(performance.now()>deadline)fail('BRIDGE_VERIFICATION_TIMEOUT');};
  if(manifest.schema!==1||manifest.version!==release||expected.version!==release||expected.repository!=='osmelpv/dot-connector'||!manifest.files||typeof manifest.files!=='object'||Array.isArray(manifest.files)||Object.keys(manifest.files).length>10000)fail('BRIDGE_SOURCE_MISMATCH');
- const modules=['native-control.mjs','native-reader.mjs','native-supervisor.mjs','native-mcp-server.mjs','native-integration-server.mjs','manual-native-mcp.mjs'];
+ const modules=['native-claim-store.mjs','native-claim-lease.mjs','native-owner.mjs','native-lifecycle.mjs','native-control.mjs','native-reader.mjs','native-supervisor.mjs','native-mcp-server.mjs','native-integration-server.mjs','manual-native-mcp.mjs'];
  for(const name of modules)if(manifest.files[name]!==expected.files['src/'+name])fail('BRIDGE_SOURCE_MISMATCH');
  for(const name of ['package.json','package-lock.json'])if(manifest.files[name]!==expected.files[name])fail('BRIDGE_SOURCE_MISMATCH');
- for(const name of ['DotConnector.Native.dll','DotConnector.NativeControl.exe'])if(!hex.test(manifest.files[name]??''))fail('BRIDGE_HELPER_MISMATCH');
- const allowed=new Set([...modules,'package.json','package-lock.json','DotConnector.Native.dll','DotConnector.NativeControl.exe']);
+ for(const name of ['DotConnector.Native.dll','DotConnector.NativeControl.exe','DotConnector.Owner.exe'])if(!hex.test(manifest.files[name]??''))fail('BRIDGE_HELPER_MISMATCH');
+ const allowed=new Set([...modules,'package.json','package-lock.json','DotConnector.Native.dll','DotConnector.NativeControl.exe','DotConnector.Owner.exe']);
  const entries=Object.entries(manifest.files);
  for(const [name,digest] of entries){
   if(!hex.test(digest)||name.includes('\\')||name.includes(':')||name.split('/').some(p=>!p||p==='.'||p==='..')||(!allowed.has(name)&&!name.startsWith('node_modules/')))fail('BRIDGE_HELPER_MISMATCH');

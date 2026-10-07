@@ -33,7 +33,7 @@ export async function prepareProjectWindowsBridge(root,{run=execute,kernelReleas
   // Verified local source copy, not an execution-policy override or an unblocked downloaded script.
   await span('bridge-verify',async()=>{
    await mkdir(localSource);
-   const names=['package.json','package-lock.json','scripts/prepare-native-manual.ps1','scripts/write-bridge-integrity.mjs','src/native-uia-provider.cs','src/native-control-host.cs','src/native-control.mjs','src/native-reader.mjs','src/native-supervisor.mjs','src/native-mcp-server.mjs','src/native-integration-server.mjs','src/manual-native-mcp.mjs'];
+   const names=['package.json','package-lock.json','scripts/prepare-native-manual.ps1','scripts/write-bridge-integrity.mjs','src/native-uia-provider.cs','src/native-control-host.cs','src/native-claim-store.mjs','src/native-claim-lease.mjs','src/native-owner.mjs','src/native-lifecycle.mjs','src/native-control.mjs','src/native-reader.mjs','src/native-supervisor.mjs','src/native-mcp-server.mjs','src/native-integration-server.mjs','src/manual-native-mcp.mjs'];
    for(const name of names){const bytes=await readFile(path.join(source,name));if(hash(bytes)!==manifest.files[name])throw Error('BRIDGE_SOURCE_MISMATCH');const destination=path.join(localSource,name);await mkdir(path.dirname(destination),{recursive:true});await writeFile(destination,bytes,{flag:'wx'});}
   });
   const setupLock=path.join(root,'bridge-setup.lock');await writeFile(setupLock,JSON.stringify({schema:1,requestId:nonce,phase:'prepare-windows-helper'}),{flag:'wx',mode:0o600});

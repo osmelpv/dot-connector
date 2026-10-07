@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {NativeWorkerSupervisor} from './native-supervisor.mjs';
 import {NativeControl} from './native-control.mjs';
+import {bindNativeLifecycle} from './native-lifecycle.mjs';
 if(process.platform!=='win32'||!['--human-launched','--bridge-check'].includes(process.argv[2]))throw Error('Manual Windows launch required; no WSL or automatic fallback.');
 const root=path.dirname(fileURLToPath(import.meta.url));
 if(process.argv[2]==='--bridge-check'){
@@ -19,8 +20,9 @@ if(process.argv[2]==='--bridge-check'){
 const target=JSON.parse(await readFile(path.join(root,'target.json'),'utf8'));
 const provider=new NativeWorkerSupervisor({nativeHostPath:path.join(root,'DotConnector.NativeControl.exe'),hostMode:'read'});
 const control=new NativeControl({target,provider,stateDir:root,claimsDir:path.join(homedir(),'.dot-connector','native-target-claims')});
-await control.open();
-const server=createNativeMcpServer(control);
-await server.connect(new StdioServerTransport());
+const server=createNativeMcpServer(control),transport=new StdioServerTransport();
+const lifecycle=bindNativeLifecycle({control,server,transport,input:process.stdin,signals:process,onFailure:()=>{process.exitCode=1;}});
+try{await control.open();if(control.closing)throw Error('native startup cancelled');await server.connect(transport);}
+catch{await lifecycle.shutdown();process.exitCode=1;}
 
 }

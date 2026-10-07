@@ -4,7 +4,7 @@ import path from 'node:path';
 import {readFile,readdir,writeFile,lstat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 const root=process.argv[2];if(process.platform!=='win32'||!root||!path.isAbsolute(root))throw Error('Explicit prepared Windows directory required');
-const files={};const names=['native-control.mjs','native-reader.mjs','native-supervisor.mjs','native-mcp-server.mjs','native-integration-server.mjs','manual-native-mcp.mjs','package.json','package-lock.json','DotConnector.Native.dll','DotConnector.NativeControl.exe'];
+const files={};const names=['native-claim-store.mjs','native-claim-lease.mjs','native-owner.mjs','native-lifecycle.mjs','native-control.mjs','native-reader.mjs','native-supervisor.mjs','native-mcp-server.mjs','native-integration-server.mjs','manual-native-mcp.mjs','package.json','package-lock.json','DotConnector.Native.dll','DotConnector.NativeControl.exe','DotConnector.Owner.exe'];
 async function record(relative){const file=path.join(root,relative),stat=await lstat(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>16*1024*1024)throw Error('Unexpected helper file');files[relative.replaceAll('\\','/')]=createHash('sha256').update(await readFile(file)).digest('hex');}
 async function walk(relative){for(const e of await readdir(path.join(root,relative),{withFileTypes:true})){if(e.isSymbolicLink())throw Error('Helper symlink refused');const name=path.join(relative,e.name);if(e.isDirectory())await walk(name);else await record(name);}}
 for(const name of names)await record(name);await walk('node_modules');

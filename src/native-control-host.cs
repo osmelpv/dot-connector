@@ -1,3 +1,38 @@
+#if OWNER_IDENTITY
+// Read-only identity of the Node caller supplied by the trusted JS adapter.
+// No UIA, input, process enumeration, elevation, token duplication or network.
+using System;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+using System.Web.Script.Serialization;
+public static class NativeOwner {
+ [StructLayout(LayoutKind.Sequential)] struct FT {public uint low,high;}
+ [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr OpenProcess(uint access,bool inherit,uint pid);
+ [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+ [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetProcessTimes(IntPtr p,out FT c,out FT e,out FT k,out FT u);
+ [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr p,uint ms);
+ [DllImport("advapi32.dll",SetLastError=true)] static extern bool OpenProcessToken(IntPtr p,uint access,out IntPtr token);
+ [DllImport("advapi32.dll",SetLastError=true)] static extern bool GetTokenInformation(IntPtr token,int kind,out int data,int size,out int needed);
+ static void Need(bool value){if(!value)throw new InvalidOperationException();}
+ public static int Main(string[] args){
+  IntPtr p=IntPtr.Zero,t=IntPtr.Zero;
+  try{
+   int pid;Need(args.Length==1&&Int32.TryParse(args[0],NumberStyles.None,CultureInfo.InvariantCulture,out pid));
+   pid=Int32.Parse(args[0],CultureInfo.InvariantCulture);Need(pid>0&&pid.ToString(CultureInfo.InvariantCulture)==args[0]);
+   p=OpenProcess(0x1000|0x100000,false,(uint)pid);Need(p!=IntPtr.Zero&&WaitForSingleObject(p,0)==258);
+   FT c,e,k,u;Need(GetProcessTimes(p,out c,out e,out k,out u));Need(OpenProcessToken(p,8,out t));
+   int session,needed;Need(GetTokenInformation(t,12,out session,4,out needed)&&needed==4&&session>=0);
+   string sid;using(var identity=new WindowsIdentity(t)){sid=identity.User.Value;}
+   long ticks=checked((long)(((ulong)c.high<<32)|c.low)+504911232000000000L);
+   Need(WaitForSingleObject(p,0)==258);
+   Console.Write(new JavaScriptSerializer().Serialize(new{pid=pid,startTimeTicks=ticks.ToString(CultureInfo.InvariantCulture),userSid=sid,sessionId=session}));return 0;
+  }catch{Console.Error.Write("OWNER_IDENTITY_UNAVAILABLE");return 1;}
+  finally{if(t!=IntPtr.Zero)CloseHandle(t);if(p!=IntPtr.Zero)CloseHandle(p);}
+ }
+}
+
+#else
 // Human-operated MCP test host. Native calls require an explicit manual-integration build.
 using System;
 using System.IO;
@@ -103,3 +138,5 @@ public static class NativeControlHost {
     }catch{Console.Write("{\"dispatched\":"+(phase=="NOT_DISPATCHED"?"false":"null")+",\"diagnostic\":\"NATIVE_REQUEST_REFUSED_OR_UNCONFIRMED_NO_RETRY\",\"phase\":\""+phase+"\"}");return 0;}
   }
 }
+
+#endif
