@@ -1,0 +1,27 @@
+# Cooperative registration: blocked design contract
+
+The pure model evaluates only synthetic evidence consistency. It always returns blocked with registration, attach, read and input false, even when all fields agree. Self-declared JSON, a provider-bound string, a caller-supplied callback, an executable name or a purported signature is not ownership evidence. No issuer, credential, registration store, shell hook or persistent channel is implemented.
+
+## Trust boundary and required evidence
+
+Client declarations may request a pane, state their expected distro/tty, and describe intent. Treat every field as untrusted. A future trusted helper/provider must obtain Windows owner and logon session, process identity including creation time, and live console identity from an authenticated OS context; it must independently verify the Linux boot/process-start/session/tty and distro context when WSL is involved. Linux PID and /dev/pts number alone are reusable. Helper binary integrity alone cannot prove which pane a console belongs to.
+
+The missing link is a trustworthy visible-pane-to-console binding. Windows Terminal's shared process PID, title, parent process tree and a pseudoconsole's GetConsoleWindow handle cannot establish it. We have not identified or validated a standard Windows Terminal API providing this association. Do not infer one. The candidate AttachConsole mechanism cannot solve this identity problem by itself.
+
+A future implementation would require cooperative host/session registration with an authenticated local peer and provider-owned evidence, protected against replay and cross-user/session substitution. A visual human confirmation alone establishes user intent, not the complete machine-verifiable association. Registration should include a provider generation and an authenticated challenge/response with the owning live session; this is a design requirement, not an implemented protocol or permission to create credentials.
+
+## Console inheritance is not a WSL binding proof
+
+Launching helper.exe from Linux can introduce an additional ConPTY; the inherited Windows console need not be the outer Windows Terminal console. See the pinned [WSL interop.cpp](https://github.com/microsoft/WSL/blob/d8e5d9826bc0fde480774b295bd236500c76d178/src/windows/common/interop.cpp) and [Linux binfmt.cpp](https://github.com/microsoft/WSL/blob/d8e5d9826bc0fde480774b295bd236500c76d178/src/linux/init/binfmt.cpp). WT_SESSION and a visible marker are output-route corroboration only, not proof that injected input reaches the selected tty/TUI through tmux or relays. There is no identified sufficient public resolver for arbitrary pane/client/console/tty association. Generic WriteConsoleInput into WSL remains unavailable.
+
+A native PowerShell/cmd-initiated helper with inherited console and authenticated named-pipe peer is one design alternative. It would still require independent pane binding, ownership/lifetime checks and separate authorization for a real trial. It is not implemented. A temporary WSL-shell registration using SO_PEERCRED and process/tty lifetime is another design alternative, also unimplemented. It occupies the shell prompt and does not control an OpenCode/TUI already running there. Peer authentication proves the peer, not the end-to-end terminal input route. Neither alternative is an equivalent delivered solution to the priority running-TUI case, and no credentials or persistent access were created.
+
+## Lifetime and revocation
+
+The model bounds observation age and registration lifetime to five seconds for rejection testing; this bound does not eliminate races. A real provider must retain or revalidate process identity across the operation, detect PID reuse, session exit, console/pane remap, WSL reboot/tty reuse, logon changes and provider generation changes. Revocation or uncertainty closes admission immediately. Never renew based solely on old client claims. Registration expiration does not revoke already queued console input; cancellation can stop only undispatched connector work. No flushing of shared console buffers.
+
+## What the user would need to do
+
+For the existing standard Windows Terminal pane, the capability remains unavailable. A future separate authorization would need to allow installing/starting a reviewed cooperative component within the chosen live session and a terminal-side provider capable of proving its pane binding. No reliable terminal-side provider has been established here, so there is no honest runnable registration command yet. Do not ask the user to paste a PID/JSON as a substitute. If the existing session already belongs to a host with supported exact-pane IPC, evaluate that host's documented identity and authorization mechanisms separately; do not move or replace the current terminal silently.
+
+Before any real input trial, implement and independently review that provider and prove the intended input route separately from the output route. An initial native-console or cooperative-shell trial must be labeled with that narrower scope; success would not establish control of the existing WSL TUI. Then request explicit authorization for one selected disposable test session, verify process/console identity and capabilities, send one short literal marker without Enter, inspect only that authorized target, and close/revoke. Never begin with an AI TUI, use a global keyboard fallback, or replay a partial write. This future trial is not currently runnable for the existing Windows Terminal pane.

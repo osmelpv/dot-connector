@@ -1,5 +1,8 @@
-param([Parameter(Mandatory=$true)][string]$Destination)
+param([Parameter(Mandatory=$true)][string]$Destination, [string]$NodePath = 'C:\Program Files\nodejs\node.exe')
 $ErrorActionPreference = 'Stop'
+if (!(Test-Path -LiteralPath $NodePath) -or [IO.Path]::GetFileName($NodePath) -ne 'node.exe') { throw 'Existing explicit Windows Node required.' }
+$npmPath = Join-Path (Split-Path -Parent $NodePath) 'npm.cmd'
+if (!(Test-Path -LiteralPath $npmPath)) { throw 'Existing npm adjacent to Windows Node required.' }
 if (-not [IO.Path]::IsPathRooted($Destination)) { throw 'Destination must be an absolute new directory.' }
 $outputRoot = [IO.Path]::GetFullPath($Destination)
 if (Test-Path -LiteralPath $outputRoot) { throw 'Destination already exists; never overwrite target, grants or locks.' }
@@ -16,16 +19,40 @@ foreach ($manifest in @('package.json','package-lock.json')) { Copy-Item -Litera
 if ($LASTEXITCODE -ne 0) { throw 'Provider compilation failed; leave artifact for inspection.' }
 & $compiler /nologo /target:exe /platform:x64 /optimize+ /warnaserror+ /define:MANUAL_NATIVE_INTEGRATION "/out:$outputRoot\DotConnector.NativeControl.exe" "/reference:$outputRoot\DotConnector.Native.dll" "/reference:$frameworkRoot\System.Web.Extensions.dll" (Join-Path $sourceRoot 'src/native-control-host.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Host compilation failed; leave artifact for inspection.' }
+$oldNpmUserConfig = $env:NPM_CONFIG_USERCONFIG
+$oldNpmGlobalConfig = $env:NPM_CONFIG_GLOBALCONFIG
+$oldNpmCache = $env:NPM_CONFIG_CACHE
+$oldNpmRegistry = $env:NPM_CONFIG_REGISTRY
+$userConfig = Join-Path $outputRoot 'empty-user-npmrc'
+$globalConfig = Join-Path $outputRoot 'empty-global-npmrc'
+New-Item -ItemType File -Path $userConfig | Out-Null
+New-Item -ItemType File -Path $globalConfig | Out-Null
+$env:NPM_CONFIG_USERCONFIG = $userConfig
+$env:NPM_CONFIG_GLOBALCONFIG = $globalConfig
+$env:NPM_CONFIG_CACHE = Join-Path $outputRoot 'npm-cache'
+$env:NPM_CONFIG_REGISTRY = 'https://registry.npmjs.org/'
 Push-Location -LiteralPath $outputRoot
 try {
-  & npm.cmd ci --ignore-scripts --no-audit --no-fund
+  & $npmPath ci --ignore-scripts --no-audit --no-fund
   if ($LASTEXITCODE -ne 0) { throw 'Isolated dependency installation failed.' }
-  & (Join-Path $outputRoot 'DotConnector.NativeControl.exe') --self-test
+  $selfTestOutput = & (Join-Path $outputRoot 'DotConnector.NativeControl.exe') --self-test
   if ($LASTEXITCODE -ne 0) { throw 'No-GUI host self-test failed.' }
-} finally { Pop-Location }
+  $selfTest = $selfTestOutput | ConvertFrom-Json
+  if ($selfTest.passed -ne $true -or $selfTest.nativeCalls -ne $false) { throw 'No-GUI host self-test did not confirm success.' }
+  $selfTestOutput
+} finally {
+  Pop-Location
+  $env:NPM_CONFIG_USERCONFIG = $oldNpmUserConfig
+  $env:NPM_CONFIG_GLOBALCONFIG = $oldNpmGlobalConfig
+  $env:NPM_CONFIG_CACHE = $oldNpmCache
+  $env:NPM_CONFIG_REGISTRY = $oldNpmRegistry
+}
 $hashes = @{}
 foreach ($name in ($modules + @('package.json','package-lock.json','DotConnector.Native.dll','DotConnector.NativeControl.exe'))) {
   $hashes[$name] = (Get-FileHash -LiteralPath (Join-Path $outputRoot $name) -Algorithm SHA256).Hash
 }
 $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputRoot 'artifact-sha256.json') -Encoding UTF8
 Write-Output 'Prepared only. No UIA/SendInput, target selection, grant, claim or consumer launch occurred.'
+
+& $NodePath (Join-Path $sourceRoot 'scripts/write-bridge-integrity.mjs') $outputRoot
+if ($LASTEXITCODE -ne 0) { throw 'Bridge integrity inventory failed.' }

@@ -13,7 +13,7 @@ const commitPattern=/^[a-f0-9]{40}$/;
 const hashPattern=/^[a-f0-9]{64}$/;
 const fail=code=>{throw Error(code);};
 export const updateError=e=>/^UPDATE_[A-Z_]+$/.test(e?.message??'')?e.message:'UPDATE_FAILED_NO_ACTIVATION_CONFIRMED';
-const allowed=/^(README\.md|\.gitignore|package(?:-lock)?\.json|\.agents\/plugins\/marketplace\.json|\.codex-plugin\/plugin\.json|\.mcp\.json|src\/(?:[^/]+\.mjs|native-(?:uia-(?:provider|host)|control-host|manual-(?:probe|writer))\.cs)|profiles\/[^/]+\.json|scripts\/(?:[^/]+\.mjs|start-terminal\.ps1|read-gui-identity\.ps1|prepare-native-manual\.ps1)|test\/[^/]+\.test\.mjs|docs\/[^/]+\.md)$/;
+const allowed=/^(\.github\/workflows\/verify\.yml|README\.md|\.gitignore|package(?:-lock)?\.json|\.agents\/plugins\/marketplace\.json|\.codex-plugin\/plugin\.json|\.mcp\.json|src\/(?:[^/]+\.mjs|native-(?:uia-(?:provider|host)|control-host|console-prototype|manual-(?:probe|writer))\.cs)|profiles\/[^/]+\.json|scripts\/(?:[^/]+\.mjs|start-terminal\.ps1|read-gui-identity\.ps1|prepare-native-manual\.ps1)|test\/[^/]+\.test\.mjs|docs\/[^/]+\.md)$/;
 function safeName(name){return typeof name==='string'&&name.length<=180&&!name.includes('\\')&&!name.includes(':')&&!name.split('/').some(p=>!p||p==='.'||p==='..')&&allowed.test(name);}
 export async function fetchBytes(url,max=1024*1024){
  let next=new URL(url);const signal=AbortSignal.timeout(30000);
@@ -171,8 +171,8 @@ export async function bootstrap(root,version,hooks={}){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),resolved=path.resolve(root);
  if(resolved===sourceRoot||resolved.startsWith(sourceRoot+path.sep)||sourceRoot.startsWith(resolved+path.sep))fail('UPDATE_INSTALL_MUST_BE_SEPARATE');
  await plainDirectory(path.dirname(resolved));
- const release=await resolveRelease(version,hooks.download??fetchBytes),m=release.manifest;
- const bytes=await (hooks.download??fetchBytes)(release.archiveUrl,8*1024*1024),files=unpackArchive(bytes,m);
+ const release=hooks.localRelease??await resolveRelease(version,hooks.download??fetchBytes),m=validateManifest(release.manifest,version,release.manifest.commit);
+ const bytes=hooks.localRelease?release.bytes:await (hooks.download??fetchBytes)(release.archiveUrl,8*1024*1024),files=unpackArchive(bytes,m);
  await mkdir(resolved,{mode:0o700});await mkdir(path.join(resolved,'releases'));await mkdir(path.join(resolved,'user'));await mkdir(path.join(resolved,'npm-home'));
  const lease=randomUUID();await writeFile(path.join(resolved,'lifecycle.lock'),JSON.stringify({lease,pid:process.pid,kind:'bootstrap'}),{flag:'wx'});
  // On bootstrap failure retain the new root and lock for inspection. Never delete or adopt it automatically.
@@ -186,6 +186,7 @@ export async function bootstrap(root,version,hooks={}){
  await writeFile(path.join(resolved,'managed.json'),JSON.stringify({schema:1,repository,launcherSha256:sha(launcher)})+'\n',{flag:'wx'});
  await writeFile(path.join(resolved,'dot-connector'),'#!/bin/sh\nexec /usr/bin/node "$(dirname "$0")/dot-connector.mjs" "$@"\n',{flag:'wx',mode:0o755});
  await atomicPointer(resolved,slot);
+ await hooks.finalize?.(resolved,m);
  const {unlink}=await import('node:fs/promises');await unlink(path.join(resolved,'lifecycle.lock'));
  return {installed:true,version:m.version,commit:m.commit,launcher:path.join(resolved,'dot-connector.mjs')};
 }

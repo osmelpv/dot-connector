@@ -9,8 +9,9 @@ const root=path.dirname(fileURLToPath(import.meta.url)),lock=path.join(root,'lif
 let owned=false,child,interrupted=false,orderly=false;
 try{
  if(process.platform!=='linux'||process.versions.node.split('.')[0]!=='22'||await realpath(root)!==root)throw Error('UPDATE_REQUIRES_MANAGED_LINUX_NODE_22');
+ const metadataOnly=process.argv[2]==='logs'||(process.argv[2]==='status'&&process.argv.includes('--local'));
  const lease=randomUUID();
- try{await writeFile(lock,JSON.stringify({lease,pid:process.pid,kind:process.argv[2]==='update'?'update':'command'}),{flag:'wx',mode:0o600});owned=true;}catch(e){if(e.code==='EEXIST')throw Error('UPDATE_SESSION_OR_OPERATION_ACTIVE');throw e;}
+ if(!metadataOnly)try{await writeFile(lock,JSON.stringify({lease,pid:process.pid,kind:process.argv[2]==='update'?'update':'command'}),{flag:'wx',mode:0o600});owned=true;}catch(e){if(e.code==='EEXIST')throw Error('UPDATE_SESSION_OR_OPERATION_ACTIVE');throw e;}
  const file=path.join(root,'current.json');if((await lstat(file)).isSymbolicLink())throw Error('UPDATE_INVALID_POINTER');
  const p=JSON.parse(await readFile(file,'utf8'));
  if(!/^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(p.version)||!/^[a-f0-9]{40}$/.test(p.commit)||p.directory!==`${p.version}-${p.commit}`)throw Error('UPDATE_INVALID_POINTER');
