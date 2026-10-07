@@ -1,4 +1,4 @@
-# Pinned WSL installation (experimental 0.1.6)
+# Pinned WSL installation (experimental 0.1.7)
 
 This release is a local/repo plugin package, not an npm publication or a listing in the universal plugin directory. Its `.codex-plugin/plugin.json` compatibility manifest references `.mcp.json`. The MCP command is the existing WSL `/usr/bin/node` (Node 22), with `cwd` set to the installed plugin root. The entrypoint exposes only `terminal_status`: it reports version and unavailable terminal capabilities. It does not inspect or control terminals, inherit `DOT_STATE`/`DOT_WEZTERM`, create session locks, spawn native workers or touch a consumer application. Concurrent diagnostic servers therefore cannot share a target: neither can bind one.
 
@@ -49,3 +49,7 @@ From a pinned Windows source checkout with existing Windows Node/npm and .NET Fr
 ## Local execution CLI
 
 After pinned installation, run `node scripts/dot-connector.mjs status` from any working directory using the script's absolute path. The [CLI protocol](CLI.md) provides persistent JSONL sessions and separate human setup; no plugin registration or global install is needed. Local execution permissions still apply. Native CLI end-to-end input remains untested.
+
+## Managed update command
+
+For `dot-connector update`, bootstrap a new isolated managed root using [UPDATE.md](UPDATE.md). Legacy 0.1.6 checkouts have no updater; keep them unchanged. The managed launcher serializes sessions against updates and retains prior versions for rollback.

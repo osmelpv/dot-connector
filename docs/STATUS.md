@@ -2,7 +2,13 @@
 
 
 
-## Current delivery: local CLI miniAPI — 0.1.6
+## Current delivery: managed updater — 0.1.7
+
+The new managed WSL/Linux installation supports published-release check/version selection, verified staging, atomic activation and rollback. It refuses concurrent managed sessions, retains prior releases and leaves opaque user state and all external/native state untouched. Version 0.1.6 requires a fresh bootstrap; no in-place adoption occurs. UPDATE.md documents the exact lifecycle and integrity limits.
+
+The 52-test suite includes synthetic release/failure/rollback cases and real managed launcher/session conflict. The release verification artifact distinguishes real GitHub bootstrap/diagnostic/check from simulated upgrade failure paths. No native GUI, AI prompt, grant, claim reset, global runtime install or application edit was performed. Native dot-to-terminal access remains subject to the previously stated runtime restriction.
+
+## Previous delivery: local CLI miniAPI — 0.1.6
 
 The CLI provides help/version/status and a persistent JSONL session with status/read/paste/submit/pause/close. Human select/authorize remain separate Windows TTY commands. This route uses an existing local execution tool and requires no plugin registration. The executor ran actual diagnostic CLI status and diagnostic process sessions; native command dispatch and close-race checks use mocked MCP calls. All 42 project tests pass, including process-level diagnostics. Native CLI selection, authorization and UIA/input have not been exercised end to end.
 

@@ -1,4 +1,4 @@
-# Local execution CLI (0.1.6 experimental)
+# Local execution CLI (0.1.7 experimental)
 
 The CLI is an executable miniAPI for callers with an existing permitted local execution tool. It needs no plugin registration. It does not expand the caller's execution permissions. Diagnostic calls have been run by this executor; native UIA/input through this CLI has not.
 
@@ -51,3 +51,7 @@ node scripts/dot-connector.mjs authorize --native-root <same-directory> --operat
 The human reviews target and text and must type ARM PASTE (or ARM SUBMIT). The grant expires in 15 seconds. The caller then obtains a fresh read and sends the matching operation while the selected terminal is foreground. Human instructions go to stderr; machine responses go to stdout. This is a cooperative same-account guard, not a security boundary against other programs running as that account.
 
 The native writer still requires the synthetic DOT_NATIVE_TEST_7F3A2C9B marker and DOT_WRITE_READY> prompt/caret guards. Generic OpenCode TUI support, background input, and native CLI end-to-end operation are not established. Existing user-reported v0.1.5 manual MCP read/paste/read evidence is separate from the new CLI. In this executor the supported native computer-use runtime is absent: diagnostics are executable, but calling native UIA/SendInput through the CLI remains disallowed. No new manual test is requested by this release.
+
+## Updating an installed CLI
+
+Managed WSL/Linux installations expose `dot-connector update --check`, `update --version X.Y.Z`, and `update --rollback` through their stable launcher. See [UPDATE.md](UPDATE.md) for bootstrap from 0.1.6, supported scope, state retention and fail-closed locks. Source/development copies cannot update themselves.
