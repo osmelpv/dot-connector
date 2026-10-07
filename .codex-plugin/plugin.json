@@ -1,6 +1,6 @@
 {
   "name": "dot-connector",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Experimental local terminal connector. This plugin release exposes installation status only; terminal control is not enabled.",
   "author": {
     "name": "osmelpv"

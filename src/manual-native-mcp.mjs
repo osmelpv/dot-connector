@@ -26,7 +26,7 @@ try{
  await writeFile(path.join(root,'target.json'),JSON.stringify(target),{flag:'wx'});
  console.log(JSON.stringify({selected:target}));
  if(!selectionOnly){
- client=new Client({name:'human-native-integration-check',version:'0.1.9'});
+ client=new Client({name:'human-native-integration-check',version:'0.1.10'});
  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'native-integration-server.mjs'),'--human-launched'],cwd:root,env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,TMP:process.env.TMP,USERPROFILE:process.env.USERPROFILE}}));
  console.log(JSON.stringify(await client.listTools()));
  while(!cancelled){
