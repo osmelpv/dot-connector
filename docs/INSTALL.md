@@ -1,4 +1,4 @@
-# Pinned WSL installation (experimental 0.1.5)
+# Pinned WSL installation (experimental 0.1.6)
 
 This release is a local/repo plugin package, not an npm publication or a listing in the universal plugin directory. Its `.codex-plugin/plugin.json` compatibility manifest references `.mcp.json`. The MCP command is the existing WSL `/usr/bin/node` (Node 22), with `cwd` set to the installed plugin root. The entrypoint exposes only `terminal_status`: it reports version and unavailable terminal capabilities. It does not inspect or control terminals, inherit `DOT_STATE`/`DOT_WEZTERM`, create session locks, spawn native workers or touch a consumer application. Concurrent diagnostic servers therefore cannot share a target: neither can bind one.
 
@@ -45,3 +45,7 @@ Run only the isolated release's `smoke:plugin` from an external consumer fixture
 The default plugin still exposes only diagnostic `terminal_status`. The separately user-launched Windows adapter exposes `terminal_status`, `terminal_snapshot`, `terminal_input` (paste or separately approved submit) and `terminal_pause`. It is not automatically loaded by `.mcp.json`.
 
 From a pinned Windows source checkout with existing Windows Node/npm and .NET Framework x64, run `scripts/prepare-native-manual.ps1 -Destination <new-absolute-directory>`. This compiles the host, installs the unchanged locked dependencies into that new directory and runs a no-GUI self-test. It never launches the consumer. It refuses existing destinations and does not copy session state or credentials. Keep the source checkout and generated hashes for provenance; build output is separate from any running test. Run the generated `manual-native-mcp.mjs` only under the manual procedure in NATIVE-MCP-INTEGRATION.md. No consumed claim or attempt is automatically cleared.
+
+## Local execution CLI
+
+After pinned installation, run `node scripts/dot-connector.mjs status` from any working directory using the script's absolute path. The [CLI protocol](CLI.md) provides persistent JSONL sessions and separate human setup; no plugin registration or global install is needed. Local execution permissions still apply. Native CLI end-to-end input remains untested.

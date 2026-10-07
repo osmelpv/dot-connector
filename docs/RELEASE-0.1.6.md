@@ -1,0 +1,7 @@
+# 0.1.6 experimental release
+
+Adds a local execution CLI miniAPI: JSON help/version/status, persistent JSONL status/read/paste/submit/pause/close, and separate interactive human select/authorize. Callers can use an existing permitted execution tool without plugin registration. Snapshots remain session-bound; native grants, persistent target claims and consumed operations remain enforced. Close rejects further commands immediately, even while pause is pending or fails. No automatic ARM, retries, queue or claim reset is introduced.
+
+Verification: 42 project tests, including real diagnostic CLI processes and mocked native dispatch/close-race checks, independent source review, package allowlist and heuristic secret scan. Native CLI UIA/input and its new human setup flow are not tested end to end. The earlier user-reported v0.1.5 manual MCP roundtrip is separate evidence. Native C# sources and dependency versions are unchanged.
+
+This executor can invoke CLI diagnostics but cannot use the CLI to bypass its missing supported computer-use runtime. The synthetic prompt guard remains; generic TUI and background control are not provided. Pause cannot retract already queued input; hard termination may leave an unknown outcome. No GUI, AI prompt, new credentials, tunnels, global installs or application changes were performed. Npm publication remains disabled. See CLI.md and INSTALL.md for pinned isolated use and limits.

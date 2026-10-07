@@ -9,6 +9,8 @@ import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {NativeWorkerSupervisor} from './native-supervisor.mjs';
 import {nativeTargetSchema} from './native-reader.mjs';
 if(process.platform!=='win32'||!process.stdin.isTTY)throw Error('User interactive Windows launch required.');
+if(process.argv.length>3||(process.argv[2]&&process.argv[2]!=='--select-only'))throw Error('Only --select-only is supported.');
+const selectionOnly=process.argv[2]==='--select-only';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const ask=createInterface({input:process.stdin,output:process.stdout});
 const provider=new NativeWorkerSupervisor({nativeHostPath:path.join(root,'DotConnector.NativeControl.exe'),hostMode:'read'});
@@ -23,7 +25,8 @@ try{
  await countdown();const target=nativeTargetSchema.parse(await provider.selectManualTarget({}));
  await writeFile(path.join(root,'target.json'),JSON.stringify(target),{flag:'wx'});
  console.log(JSON.stringify({selected:target}));
- client=new Client({name:'human-native-integration-check',version:'0.1.5'});
+ if(!selectionOnly){
+ client=new Client({name:'human-native-integration-check',version:'0.1.6'});
  await client.connect(new StdioClientTransport({command:process.execPath,args:[path.join(root,'native-integration-server.mjs'),'--human-launched'],cwd:root,env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,TEMP:process.env.TEMP,TMP:process.env.TMP,USERPROFILE:process.env.USERPROFILE}}));
  console.log(JSON.stringify(await client.listTools()));
  while(!cancelled){
@@ -39,6 +42,7 @@ try{
   await countdown();const snapshot=await call('terminal_snapshot');
   console.log(JSON.stringify(await call('terminal_input',{snapshotId:snapshot.snapshotId,operationId,kind,text})));
   await call('terminal_pause');
+ }
  }
 }catch{console.error('Stopped: refused, cancelled or outcome unconfirmed. Inspect the terminal. No retry or lock cleanup.');process.exitCode=1;}
 finally{await writeFile(path.join(root,'control.json'),JSON.stringify({paused:true}));provider.cancel();if(client){await client.callTool({name:'terminal_pause',arguments:{}}).catch(()=>{});await client.close();}ask.close();}

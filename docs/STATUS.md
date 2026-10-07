@@ -1,4 +1,20 @@
-# Verification status — 2026-10-06
+# Verification status — 2026-10-07
+
+
+
+## Current delivery: local CLI miniAPI — 0.1.6
+
+The CLI provides help/version/status and a persistent JSONL session with status/read/paste/submit/pause/close. Human select/authorize remain separate Windows TTY commands. This route uses an existing local execution tool and requires no plugin registration. The executor ran actual diagnostic CLI status and diagnostic process sessions; native command dispatch and close-race checks use mocked MCP calls. All 42 project tests pass, including process-level diagnostics. Native CLI selection, authorization and UIA/input have not been exercised end to end.
+
+The native runtime restriction remains: this executor lacks the required supported computer-use runtime, and CLI execution does not authorize a UIA/SendInput bypass. No GUI, AI prompt, new grant, claim reset or repeated manual test was executed for this delivery. Background operation remains deferred. See CLI.md for exact invocation, protocol, cancellation limits and separate human gating. The historical 227/410 ms figures below are local native measurements, not dot end-to-end latency.
+
+## Published v0.1.5 artifact: manual MCP roundtrip passed
+
+The user confirmed running the prepared `native-mcp-v0.1.5` artifact derived from published commit `01977390cd77a4d0e098359f3ada63a8da1c61f1`. SELECT, initial READ, human-approved PASTE and post-READ completed successfully. The initial prompt was empty; paste returned dispatched:true; the final bounded visible-range read showed `DOT_WRITE_READY> DOT_WRITE_TEST` on the same target and pane with truncated:false. No SUBMIT occurred. This is user-reported manual execution, not an agent replay, autonomous dot invocation or generic TUI compatibility evidence.
+
+The user confirmed QUIT for the earlier manual MCP session. QUIT for this published-artifact session has been requested but is not yet confirmed. Claims and consumed operation records remain untouched. The earlier 35-test result and no-GUI preparation checks remain historical evidence; no repeat test or GUI operation was performed to record this result.
+
+The next useful gate is not another identical shell test. Direct dot invocation still requires an available, permitted runtime/tool route. OpenCode consuming diagnostic MCP does not by itself provide that route. Separately, adapting the native writer to OpenCode requires replacing its synthetic PowerShell prompt/caret assumptions with explicit, tested TUI guards; current write/submit guards intentionally require `DOT_WRITE_READY>`. Before any AI prompt, coordinate the exact prompt, provider/model and spend. First validate TUI selection and bounded read, then separately authorized pending paste and submit; never claim generic TUI support from this shell result. Background operation remains deferred.
 
 ## Native terminal: user-run fixed-text write passed
 
@@ -39,7 +55,7 @@ User-tested manual EXE SHA-256:
 
 The 0.1.5 source includes a separately user-launched native MCP adapter with bounded read, human-approved paste, separate submit and pause. Persistent claims coordinate the same HWND/process across participating installations; exact-operation grants expire and consumed operation IDs cannot be replayed. The default plugin manifest remains diagnostic-only.
 
-The user reported SELECT/READ/PASTE/READ success through this adapter, with the same target and UIA pane before and after, a visible pending DOT_WRITE_TEST marker, and truncated:false. No SUBMIT was performed. This is manual MCP-to-terminal evidence, not autonomous dot invocation. QUIT was requested but closure is not confirmed. No current target, session ID, grant or claim is included in publication.
+The user reported SELECT/READ/PASTE/READ success through this adapter, with the same target and UIA pane before and after, a visible pending DOT_WRITE_TEST marker, and truncated:false. No SUBMIT was performed. This is manual MCP-to-terminal evidence, not autonomous dot invocation. Closure of that earlier session was subsequently confirmed by the user; the published-artifact session above remains unconfirmed. No current target, session ID, grant or claim is included in publication.
 
 The executor still lacks the permitted computer-use runtime for autonomous native invocation; manual success does not remove that boundary. Pending native validation includes actual submit, cancellation during a genuinely hung UIA call and broader refusal cases. Human typing is not automatically detected, and checking focus before SendInput cannot make dispatch atomic. No automatic retry, rearm or cleanup input is allowed.
 

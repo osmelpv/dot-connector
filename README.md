@@ -17,7 +17,7 @@ OpenCode, Claude Code, and GentleShell are initial integration targets, rather t
 
 ## Project status
 
-Early development. A local prototype is being evaluated; end-to-end access from dot and compatibility with terminal applications are not yet verified. Version 0.1.5 packages an experimental WSL plugin with a diagnostic-only MCP entrypoint. See [installation and rollback](docs/INSTALL.md). The separate [manual native MCP adapter](docs/NATIVE-MCP-INTEGRATION.md) passed user-run read/paste/read validation without Enter. Terminal control is not enabled by installation; publication and runtime registration must be verified separately.
+Early development. A local prototype is being evaluated; end-to-end access from dot and compatibility with terminal applications are not yet verified. Version 0.1.6 adds a [local execution CLI miniAPI](docs/CLI.md), with real diagnostic process tests and mocked native dispatch tests. The default WSL plugin remains diagnostic-only. See [installation and rollback](docs/INSTALL.md). The separate [manual native MCP adapter](docs/NATIVE-MCP-INTEGRATION.md) passed user-run read/paste/read validation without Enter. Terminal control is not enabled by installation; publication and runtime registration must be verified separately.
 
 ## Development approach
 
