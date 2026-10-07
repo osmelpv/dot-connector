@@ -1,0 +1,7 @@
+# 0.1.8 experimental release
+
+Fixes update checks for this experimental product. Default stable checks now return a successful no-candidate JSON result when GitHub has no stable release. Explicit `--channel experimental` selects the highest numeric X.Y.Z published prerelease and verifies the same release/tag/manifest/archive identity as pinned updates. No prerelease is promoted to stable. Other HTTP/network failures remain failures; automatic downgrade and same-version commit replacement are refused.
+
+Managed 0.1.7 installations can upgrade with `dot-connector update --version 0.1.8`; the new channel option is available after activation. The previous code/dependencies remain available for rollback and the stable launcher/lifecycle guards are unchanged. Config, profiles, credentials and native grants/claims are not migrated or reset.
+
+Verification: 58 tests, including stable404, prerelease/semver selection, bounded/ambiguous lists, pinned checksum/missing-asset failures and the existing activation/rollback/session tests; independent source review and clean package audit. The release verification report records actual published 0.1.7 to 0.1.8 activation and installed diagnostic checks separately from synthetic failure tests. No GUI/native input, global runtime install or application changes are involved. SHA-256 is integrity under publisher/GitHub trust, not an independent signature.

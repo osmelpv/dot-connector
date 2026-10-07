@@ -13,7 +13,7 @@ const argv=process.argv.slice(2);let client,lines,safeToUnlock=true;
 try{
  const rawAction=argv.shift();
  if(rawAction==='update'){
-  const options={};while(argv.length){const key=argv.shift();if(key==='--check'||key==='--rollback'){if(options[key.slice(2)])throw Error('UPDATE_INVALID_OPTIONS');options[key.slice(2)]=true;}else if(key==='--version'&&argv.length&&!options.version)options.version=argv.shift();else throw Error('UPDATE_INVALID_OPTIONS');}
+  const options={};while(argv.length){const key=argv.shift();if(key==='--check'||key==='--rollback'){if(options[key.slice(2)])throw Error('UPDATE_INVALID_OPTIONS');options[key.slice(2)]=true;}else if(['--version','--channel'].includes(key)&&argv.length&&!Object.hasOwn(options,key.slice(2)))options[key.slice(2)]=argv.shift();else throw Error('UPDATE_INVALID_OPTIONS');}
   try{emit({ok:true,result:await runUpdate(process.env.DOT_INSTALL_ROOT,process.env.DOT_INSTALL_LEASE,options)});}catch(e){if(['UPDATE_CHILD_CLEANUP_UNCONFIRMED','UPDATE_ROLLBACK_UNCONFIRMED'].includes(e.message))safeToUnlock=false;emit({ok:false,error:updateError(e)});process.exitCode=1;}
  }else{
 const action=({'--help':'help','--version':'version'})[rawAction]??rawAction;let backend='diagnostic',root;const options={};

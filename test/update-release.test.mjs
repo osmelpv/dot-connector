@@ -7,7 +7,7 @@ import {createHash,randomUUID} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
 import {spawn,execFile} from 'node:child_process';
 import {promisify} from 'node:util';
-import {bootstrap,runUpdate,unpackArchive} from '../src/update-release.mjs';
+import {bootstrap,runUpdate,unpackArchive,resolveRelease,compareVersions} from '../src/update-release.mjs';
 const exec=promisify(execFile),hash=b=>createHash('sha256').update(b).digest('hex');
 const launcher=await readFile(new URL('../scripts/managed-launcher.mjs',import.meta.url));
 function tarFile(name,bytes,type='0'){
@@ -20,7 +20,7 @@ function fixture(version='0.1.7',commit='a'.repeat(40),extra=[]){
  const manifest={schema:1,repository:'osmelpv/dot-connector',version,commit,archive:`dot-connector-${version}-source.tar.gz`,size:archive.length,sha256:hash(archive),files:Object.fromEntries(Object.entries(files).map(([n,b])=>[n,hash(b)]))};
  const m=Buffer.from(JSON.stringify(manifest)),url=`https://github.com/osmelpv/dot-connector/releases/download/v${version}/`;
  const release={id:7,draft:false,prerelease:true,published_at:'2026-10-07T00:00:00Z',tag_name:'v'+version,assets:[{name:`update-manifest-${version}.json`,state:'uploaded',browser_download_url:url+`update-manifest-${version}.json`,digest:'sha256:'+hash(m)},{name:manifest.archive,state:'uploaded',size:archive.length,browser_download_url:url+manifest.archive,digest:'sha256:'+hash(archive)}]};
- return {manifest,archive,download:async target=>{if(target.endsWith(`/releases/tags/v${version}`))return Buffer.from(JSON.stringify(release));if(target.endsWith(`/git/ref/tags/v${version}`))return Buffer.from(JSON.stringify({object:{type:'commit',sha:commit}}));if(target.endsWith('.json'))return m;if(target.endsWith('.tar.gz'))return archive;throw Error('network unavailable');}};
+ return {release,manifest,archive,download:async target=>{if(target.endsWith(`/releases/tags/v${version}`))return Buffer.from(JSON.stringify(release));if(target.endsWith(`/git/ref/tags/v${version}`))return Buffer.from(JSON.stringify({object:{type:'commit',sha:commit}}));if(target.endsWith('.json'))return m;if(target.endsWith('.tar.gz'))return archive;throw Error('network unavailable');}};
 }
 async function installed(t){
  const parent=await mkdtemp(path.join(tmpdir(),'dot-update-test-'));t.after(()=>rm(parent,{recursive:true,force:true}));const root=path.join(parent,'installed');
@@ -87,4 +87,41 @@ test('staged source mutation is rejected before invoking release code',async t=>
  const {root,lease}=await installed(t),next=fixture('0.1.8','b'.repeat(40));let healthCalled=false;
  await assert.rejects(runUpdate(root,lease,{version:'0.1.8'},{download:next.download,prepare:async dir=>writeFile(path.join(dir,'scripts/dot-connector.mjs'),'changed'),health:async()=>{healthCalled=true;}}),/INSTALLED_SOURCE_CHANGED/);
  assert.equal(healthCalled,false);
+});
+
+
+test('stable latest 404 returns no candidate without mutation, other errors remain failures',async t=>{
+ const {root,lease}=await installed(t),before=await readFile(path.join(root,'current.json'));
+ const missing=async url=>{assert.ok(url.endsWith('/releases/latest'));throw Object.assign(Error('missing'),{status:404});};
+ for(const check of [true,false]){const result=await runUpdate(root,lease,{check},{download:missing});assert.equal(result.available,null);assert.equal(result.reason,'NO_PUBLISHED_RELEASE_IN_CHANNEL');assert.equal(result.changed,false);}
+ assert.deepEqual(await readFile(path.join(root,'current.json')),before);
+ await assert.rejects(runUpdate(root,lease,{check:true},{download:async()=>{throw Object.assign(Error('rate limit'),{status:403});}}),/rate limit/);
+});
+test('experimental selects highest numeric semver published prerelease, then verifies its pinned assets',async()=>{
+ const high=fixture('0.10.0','b'.repeat(40)),low=fixture('0.9.0','c'.repeat(40));
+ const list=[low.release,{...high.release,tag_name:'v9.0.0',draft:true},{...high.release,tag_name:'v8.0.0',prerelease:false},{...high.release,tag_name:'v01.99.0'},{...high.release,tag_name:'v10.0.0-beta'},high.release];
+ const download=async url=>url.includes('/releases?')?Buffer.from(JSON.stringify(list)):high.download(url);
+ const result=await resolveRelease(undefined,download,'experimental');assert.equal(result.manifest.version,'0.10.0');assert.equal(compareVersions('1.0.0','0.999.999')>0,true);
+ assert.throws(()=>compareVersions('01.0.0','1.0.0'),/INVALID_VERSION/);
+});
+test('empty experimental list returns no candidate; ambiguous or truncated lists fail closed',async()=>{
+ assert.equal(await resolveRelease(undefined,async()=>Buffer.from('[]'),'experimental'),null);
+ const f=fixture();await assert.rejects(resolveRelease(undefined,async()=>Buffer.from(JSON.stringify([f.release,f.release])),'experimental'),/AMBIGUOUS/);
+ let pages=0;await assert.rejects(resolveRelease(undefined,async()=>{pages++;return Buffer.from(JSON.stringify(Array(100).fill({draft:true})));},'experimental'),/LIST_LIMIT/);assert.equal(pages,3);
+});
+test('pinned version retains checksum and missing asset failures even when status is 404',async()=>{
+ const f=fixture('0.1.8','b'.repeat(40));
+ assert.equal((await resolveRelease('0.1.8',f.download)).manifest.commit,'b'.repeat(40));
+ await assert.rejects(resolveRelease('0.1.8',async url=>{if(url.endsWith('.json'))return Buffer.from('{}');return f.download(url);}),/MANIFEST_CHECKSUM_MISMATCH/);
+ await assert.rejects(resolveRelease('0.1.8',async url=>{if(url.endsWith('.json'))throw Object.assign(Error('asset missing'),{status:404});return f.download(url);}),/asset missing/);
+});
+test('automatic channel does not downgrade and same-version changed commit is rejected',async t=>{
+ const {root,lease}=await installed(t),old=fixture('0.1.6','b'.repeat(40));
+ const download=async url=>url.includes('/releases?')?Buffer.from(JSON.stringify([old.release])):old.download(url);
+ const result=await runUpdate(root,lease,{channel:'experimental'},{download});assert.equal(result.reason,'NO_NEWER_RELEASE_IN_CHANNEL');assert.equal(result.updated,false);
+ const changed=fixture('0.1.7','b'.repeat(40));await assert.rejects(runUpdate(root,lease,{version:'0.1.7'},{download:changed.download}),/IDENTITY_CHANGED/);
+});
+test('version and channel are mutually exclusive and invalid channels are refused',async t=>{
+ const {root,lease}=await installed(t);await assert.rejects(runUpdate(root,lease,{version:'0.1.8',channel:'experimental'}),/EXCLUSIVE/);
+ await assert.rejects(resolveRelease(undefined,async()=>assert.fail('no network'),'other'),/INVALID_CHANNEL/);
 });

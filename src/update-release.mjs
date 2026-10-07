@@ -21,7 +21,7 @@ export async function fetchBytes(url,max=1024*1024){
   if(next.protocol!=='https:'||next.username||next.password||!['api.github.com','github.com','release-assets.githubusercontent.com','objects.githubusercontent.com'].includes(next.hostname))fail('UPDATE_UNTRUSTED_DOWNLOAD_URL');
   const response=await fetch(next,{redirect:'manual',signal,headers:{'User-Agent':'dot-connector-updater','Accept':'application/vnd.github+json'}});
   if([301,302,303,307,308].includes(response.status)){await response.body?.cancel();next=new URL(response.headers.get('location'),next);continue;}
-  if(!response.ok)fail('UPDATE_RELEASE_OR_NETWORK_UNAVAILABLE');
+  if(!response.ok){await response.body?.cancel();const error=Error('UPDATE_RELEASE_OR_NETWORK_UNAVAILABLE');error.status=response.status;throw error;}
   if(Number(response.headers.get('content-length'))>max){await response.body?.cancel();fail('UPDATE_DOWNLOAD_TOO_LARGE');}
   const chunks=[];let count=0;for await(const chunk of response.body){count+=chunk.length;if(count>max)fail('UPDATE_DOWNLOAD_TOO_LARGE');chunks.push(chunk);}
   return Buffer.concat(chunks);
@@ -34,12 +34,34 @@ export function validateManifest(m,version,commit){
  for(const n of ['package.json','package-lock.json','scripts/dot-connector.mjs','scripts/managed-launcher.mjs','src/update-release.mjs'])if(!m.files[n])fail('UPDATE_INVALID_MANIFEST');
  return m;
 }
-export async function resolveRelease(version,download=fetchBytes){
+export function compareVersions(a,b){
+ if(!versionPattern.test(a)||!versionPattern.test(b))fail('UPDATE_INVALID_VERSION');
+ const av=a.split('.').map(Number),bv=b.split('.').map(Number);for(let i=0;i<3;i++)if(av[i]!==bv[i])return av[i]-bv[i];return 0;
+}
+export async function resolveRelease(version,download=fetchBytes,channel='stable'){
  if(version!==undefined&&!versionPattern.test(version))fail('UPDATE_INVALID_VERSION');
+ if(!['stable','experimental'].includes(channel))fail('UPDATE_INVALID_CHANNEL');
  const json=async url=>JSON.parse((await download(url,1024*1024)).toString('utf8'));
- const release=await json(`${api}/releases/${version?`tags/v${version}`:'latest'}`);
+ let release,selected;
+ if(!version&&channel==='experimental'){
+  const candidates=[];let complete=false;
+  for(let page=1;page<=3;page++){
+   const releases=await json(`${api}/releases?per_page=100&page=${page}`);
+   if(!Array.isArray(releases)||releases.length>100)fail('UPDATE_INVALID_RELEASE_LIST');
+   for(const item of releases)if(item?.draft===false&&item.prerelease===true&&item.published_at&&Number.isSafeInteger(item.id)&&/^v(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/.test(item.tag_name??''))candidates.push(item);
+   if(releases.length<100){complete=true;break;}
+  }
+  if(!complete)fail('UPDATE_RELEASE_LIST_LIMIT');
+  if(!candidates.length)return null;
+  candidates.sort((a,b)=>compareVersions(b.tag_name.slice(1),a.tag_name.slice(1)));
+  selected=candidates[0];if(candidates.filter(r=>r.tag_name===selected.tag_name).length!==1)fail('UPDATE_AMBIGUOUS_RELEASE');
+  release=await json(`${api}/releases/tags/${selected.tag_name}`);
+ }else{
+  try{release=await json(`${api}/releases/${version?`tags/v${version}`:'latest'}`);}
+  catch(e){if(!version&&channel==='stable'&&e.status===404)return null;throw e;}
+ }
  const resolved=release.tag_name?.slice(1);
- if(release.draft!==false||!release.published_at||!Number.isSafeInteger(release.id)||!versionPattern.test(resolved??'')||release.tag_name!==`v${resolved}`||(version&&resolved!==version)||(!version&&release.prerelease))fail('UPDATE_NOT_PUBLISHED_RELEASE');
+ if(release.draft!==false||!release.published_at||!Number.isSafeInteger(release.id)||!versionPattern.test(resolved??'')||release.tag_name!==`v${resolved}`||(version&&resolved!==version)||(!version&&release.prerelease!==(channel==='experimental'))||(selected&&(release.id!==selected.id||release.tag_name!==selected.tag_name)))fail('UPDATE_NOT_PUBLISHED_RELEASE');
  let ref=await json(`${api}/git/ref/tags/v${resolved}`),object=ref.object;
  for(let i=0;object?.type==='tag'&&i<3;i++){if(!commitPattern.test(object.sha))fail('UPDATE_INVALID_TAG');object=(await json(`${api}/git/tags/${object.sha}`)).object;}
  if(object?.type!=='commit'||!commitPattern.test(object.sha))fail('UPDATE_INVALID_TAG');
@@ -109,13 +131,18 @@ export async function runUpdate(root,lease,options={},hooks={}){
  await requireManaged(root,lease);
  const current=await jsonFile(path.join(root,'current.json'));validateSlot(current);
  const active=await verifyInstalled(root,current);
- if(options.rollback&&(options.version||options.check))fail('UPDATE_INVALID_OPTIONS');
+ if(options.rollback&&(options.version||options.check||options.channel))fail('UPDATE_INVALID_OPTIONS');
+ if(options.version&&options.channel)fail('UPDATE_VERSION_AND_CHANNEL_ARE_EXCLUSIVE');
  const health=hooks.health??healthCheck,activate=hooks.activate??atomicPointer;
  let next;
  if(options.rollback){if(!current.previous)fail('UPDATE_NO_PREVIOUS_RELEASE');next=validateSlot(current.previous);await verifyInstalled(root,next);}
  else{
-  const release=await resolveRelease(options.version,hooks.download??fetchBytes),m=release.manifest;
-  if(options.check)return {current:current.version,available:m.version,commit:m.commit,releaseId:release.releaseId,prerelease:release.prerelease,changed:current.commit!==m.commit,integrity:'SHA-256; no independent signature'};
+  const channel=options.channel??'stable',release=await resolveRelease(options.version,hooks.download??fetchBytes,channel);
+  if(!release)return {current:current.version,available:null,channel,changed:false,updated:false,reason:'NO_PUBLISHED_RELEASE_IN_CHANNEL',...(channel==='stable'?{hint:'Use --channel experimental to explicitly opt into prereleases.'}:{})};
+  const m=release.manifest;
+  if(m.version===current.version&&m.commit!==current.commit)fail('UPDATE_RELEASE_IDENTITY_CHANGED');
+  if(!options.version&&compareVersions(m.version,current.version)<0)return {current:current.version,available:m.version,channel,changed:false,updated:false,reason:'NO_NEWER_RELEASE_IN_CHANNEL'};
+  if(options.check)return {channel:options.version?'pinned':channel,current:current.version,available:m.version,commit:m.commit,releaseId:release.releaseId,prerelease:release.prerelease,changed:current.commit!==m.commit,integrity:'SHA-256; no independent signature'};
   if(current.commit===m.commit&&current.version===m.version)return {updated:false,version:current.version};
   next={version:m.version,commit:m.commit,directory:`${m.version}-${m.commit}`};
   const final=path.join(root,'releases',next.directory);

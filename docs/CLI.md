@@ -1,4 +1,4 @@
-# Local execution CLI (0.1.7 experimental)
+# Local execution CLI (0.1.8 experimental)
 
 The CLI is an executable miniAPI for callers with an existing permitted local execution tool. It needs no plugin registration. It does not expand the caller's execution permissions. Diagnostic calls have been run by this executor; native UIA/input through this CLI has not.
 
@@ -54,4 +54,4 @@ The native writer still requires the synthetic DOT_NATIVE_TEST_7F3A2C9B marker a
 
 ## Updating an installed CLI
 
-Managed WSL/Linux installations expose `dot-connector update --check`, `update --version X.Y.Z`, and `update --rollback` through their stable launcher. See [UPDATE.md](UPDATE.md) for bootstrap from 0.1.6, supported scope, state retention and fail-closed locks. Source/development copies cannot update themselves.
+Managed WSL/Linux installations expose `dot-connector update --check`, `update --channel experimental`, `update --version X.Y.Z`, and `update --rollback` through their stable launcher. See [UPDATE.md](UPDATE.md) for bootstrap from 0.1.6, supported scope, state retention and fail-closed locks. Source/development copies cannot update themselves.

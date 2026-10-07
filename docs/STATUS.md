@@ -2,7 +2,11 @@
 
 
 
-## Current delivery: managed updater — 0.1.7
+## Current delivery: explicit update channels — 0.1.8
+
+Default stable checks handle GitHub's missing latest-stable release as a successful no-candidate result. Explicit experimental selection uses the highest numeric published prerelease and retains pinned manifest/commit/checksum validation. Automatic downgrade and same-version commit replacement are rejected. The 58-test suite covers channel selection and existing lifecycle/rollback guards. The published verification report records the real managed 0.1.7 to 0.1.8 upgrade and status/version before and after; fixture failure tests remain separately identified. No GUI or native input is involved.
+
+## Previous delivery: managed updater — 0.1.7
 
 The new managed WSL/Linux installation supports published-release check/version selection, verified staging, atomic activation and rollback. It refuses concurrent managed sessions, retains prior releases and leaves opaque user state and all external/native state untouched. Version 0.1.6 requires a fresh bootstrap; no in-place adoption occurs. UPDATE.md documents the exact lifecycle and integrity limits.
 

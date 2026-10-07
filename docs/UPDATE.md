@@ -1,16 +1,16 @@
-# Managed updates (0.1.7 experimental)
+# Managed updates (0.1.8 experimental)
 
 `dot-connector update` updates only a separate managed WSL/Linux installation using the existing `/usr/bin/node` 22 runtime. It does not update development checkouts, legacy source copies, Windows native prepared artifacts, applications, global Node, or global npm packages. The installed launcher remains stable; release code and dependencies live in separate version/commit directories. There are no symlinks into development.
 
 ## First installation when starting from 0.1.6
 
-Version 0.1.6 has no update command and cannot update itself. Keep that verified copy and its state untouched. Obtain the new source in a fresh checkout, detached at the full 40-character commit published in the 0.1.7 release, verify that identity, then run its core-Node bootstrap script. The bootstrap itself needs no npm install in that source checkout:
+Version 0.1.6 has no update command and cannot update itself. Keep that verified copy and its state untouched. Obtain the new source in a fresh checkout, detached at the full 40-character commit published in the selected release, verify that identity, then run its core-Node bootstrap script. The bootstrap itself needs no npm install in that source checkout:
 
 ```sh
 git clone https://github.com/osmelpv/dot-connector.git "$BOOTSTRAP_SOURCE"
 git -C "$BOOTSTRAP_SOURCE" checkout --detach "$RELEASE_SHA"
 test "$(git -C "$BOOTSTRAP_SOURCE" rev-parse HEAD)" = "$RELEASE_SHA"
-/usr/bin/node "$BOOTSTRAP_SOURCE/scripts/install-managed.mjs" --root "$INSTALL_ROOT" --version 0.1.7
+/usr/bin/node "$BOOTSTRAP_SOURCE/scripts/install-managed.mjs" --root "$INSTALL_ROOT" --version 0.1.8
 "$INSTALL_ROOT/dot-connector" version
 "$INSTALL_ROOT/dot-connector" status
 ```
@@ -20,12 +20,21 @@ Choose distinct absolute paths outside development and application repositories.
 ## Commands
 
 ```sh
-"$INSTALL_ROOT/dot-connector" update --check --version 0.1.7
-"$INSTALL_ROOT/dot-connector" update --version 0.1.7
+"$INSTALL_ROOT/dot-connector" update --check --version 0.1.8
+"$INSTALL_ROOT/dot-connector" update --version 0.1.8
 "$INSTALL_ROOT/dot-connector" update --rollback
 ```
 
-`--check` resolves a published GitHub release and validates its manifest/tag binding without downloading the source archive or changing the active version. An explicit numeric version selects that published release, including an experimental prerelease. Without `--version`, GitHub's latest stable release is selected; if no stable release exists, the command refuses. Branches, arbitrary commits, URLs and bare pushed tags are not update targets. Updating to the active version is a verified no-op. JSON is emitted on stdout; dependency output is suppressed.
+`--check` resolves a published GitHub release and validates its manifest/tag binding without downloading the source archive or changing the active version. An explicit numeric version selects that published release, including an experimental prerelease. Without `--version`, the default channel is stable. GitHub's latest stable release is selected; if its endpoint returns HTTP 404, the command succeeds with `available:null`, `changed:false`, `updated:false` and `reason:NO_PUBLISHED_RELEASE_IN_CHANNEL`. Network errors, rate limits and missing tag/manifest/assets remain failures. No prerelease is promoted to stable.
+
+Opt into this project's experimental releases explicitly:
+
+```sh
+"$INSTALL_ROOT/dot-connector" update --check --channel experimental
+"$INSTALL_ROOT/dot-connector" update --channel experimental
+```
+
+The experimental channel selects only published, non-draft prereleases with strict numeric X.Y.Z tags. It compares numeric major/minor/patch values, not lexical order or publication date; `0.10.0` sorts after `0.9.0`. It validates the selected release again by tag and applies the same commit, manifest and checksum checks. Empty channels return no candidate. Listing is bounded to three pages of 100; a full third page or an ambiguous selected tag refuses rather than guessing. Automatic channel selection never downgrades the active version. A changed commit under the same installed version is refused. `--version` and `--channel` are mutually exclusive: an explicit version is a separate pinned choice, including an intentional older published version. Branches, arbitrary commits, URLs and bare pushed tags are not update targets. Updating to the active version is a verified no-op. JSON is emitted on stdout; dependency output is suppressed.
 
 Downloads come only from the fixed osmelpv/dot-connector GitHub repository and recognized GitHub release-asset hosts, with bounded sizes, timeouts and redirects. The requested release's Git tag resolves to the manifest commit. Archive SHA-256, available GitHub asset digests, every source file hash, package name/version, paths and file types are checked. Links, path traversal, duplicate files and unsupported tar extensions are rejected. The Git archive commit-comment header is explicitly supported. SHA-256 gives integrity and consistency under trust in GitHub and this publisher; it is not a signature or independent publisher authentication.
 
@@ -46,3 +55,18 @@ The stable `user/` directory is reserved for opaque local config, custom profile
 Unit/integration tests cover corrupt checksum, network/preparation failures, partial activation and postactivation health rollback, config/profile/credential retention, unsafe archives, stage mutation, existing-root refusal and a real launcher/session conflict. Remote release responses and update versions in failure tests are synthetic fixtures. Publication validation separately checks a real GitHub bootstrap, diagnostic invocation and release check/no-op. Native UIA/input is not executed. Managed updating is Linux/WSL-only; the Windows native artifacts remain manual and separate.
 
 Primary references: [GitHub release REST API](https://docs.github.com/en/rest/releases/releases#get-a-release-by-tag-name) and [npm ci](https://docs.npmjs.com/cli/v10/commands/npm-ci/).
+
+## Upgrade from managed 0.1.7
+
+The existing 0.1.7 launcher can install this fix using its already supported pinned version command:
+
+```sh
+"$INSTALL_ROOT/dot-connector" version
+"$INSTALL_ROOT/dot-connector" update --version 0.1.8
+"$INSTALL_ROOT/dot-connector" version
+"$INSTALL_ROOT/dot-connector" update --check
+"$INSTALL_ROOT/dot-connector" update --check --channel experimental
+"$INSTALL_ROOT/dot-connector" status
+```
+
+Do not pass --channel to 0.1.7: that option becomes available after activation of 0.1.8. The installation root and stable launcher stay the same; the previous 0.1.7 release is retained for rollback. This path is an actual version upgrade when the starting version is 0.1.7, unlike reinstalling the currently active version.

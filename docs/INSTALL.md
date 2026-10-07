@@ -1,4 +1,4 @@
-# Pinned WSL installation (experimental 0.1.7)
+# Pinned WSL installation (experimental 0.1.8)
 
 This release is a local/repo plugin package, not an npm publication or a listing in the universal plugin directory. Its `.codex-plugin/plugin.json` compatibility manifest references `.mcp.json`. The MCP command is the existing WSL `/usr/bin/node` (Node 22), with `cwd` set to the installed plugin root. The entrypoint exposes only `terminal_status`: it reports version and unavailable terminal capabilities. It does not inspect or control terminals, inherit `DOT_STATE`/`DOT_WEZTERM`, create session locks, spawn native workers or touch a consumer application. Concurrent diagnostic servers therefore cannot share a target: neither can bind one.
 
