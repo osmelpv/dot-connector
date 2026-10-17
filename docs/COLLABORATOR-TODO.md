@@ -38,7 +38,7 @@ find "$QA_ROOT/tmp" -mindepth 1 -maxdepth 1 -print
 tail -12 "$QA_ROOT/evidence/tests.log"
 ```
 
-- [ ] Expected baseline: 254 tests, 253 pass, zero failures, one intentional skip;
+- [ ] Expected baseline: 255 tests, 254 pass, zero failures, one intentional skip;
   build/package exit zero; no remaining fixtures in the isolated tmp directory.
   Investigate any changed count or skip reason rather than treating it as a pass.
 - [ ] Inspect the package inventory: no internal proposals/reviews, credentials,
