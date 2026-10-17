@@ -20,6 +20,7 @@ export class SnapshotBridge {
   constructor(session) {
     this.session=session;this.owner=session.connect('human');this.agent=session.connect();
     this.binding=Object.freeze(Object.fromEntries(bindingKeys.map(k=>[k,session.identity[k]])));
+    this.orderedAgent=session.orderedOutput?.connect('agent');this.orderedHuman=null;
     this.sequence=0;this.agentSnapshot=null;this.human=null;this.humanInputActive=false;this.closed=false;this.closing=null;
   }
   check(binding) {
@@ -28,17 +29,19 @@ export class SnapshotBridge {
   }
   status() {return {binding:this.binding,...this.session.status(this.agent),sequence:this.sequence,
     humanConnected:Boolean(this.human),
+    ...(this.session.orderedOutput?{orderedOutput:{identity:this.session.orderedOutput.identity,version:2,available:!this.session.orderedOutput.stats().closed}}:{}),
     transport:'bounded-mcp-stdio',view:'escaped-text-snapshots',lossless:false,
     authentication:'host-owned-stdio; local-human-socket is same-UID cooperative only',
     cloudConnectionProven:false,reconnect:'new process means new session; never replay input'};}
-  async read(client,binding,after) {
+  async readOutput(client,binding,after) {return this.read(client,binding,after,true);}
+  async read(client,binding,after,observationOnly=false) {
     this.check(binding);
     if(!Number.isSafeInteger(after)||after<0||after>this.sequence)fail('INVALID_CURSOR');
-    const snapshot=await this.session.snapshot(client);
+    const snapshot=await (observationOnly?this.session.observe(client):this.session.snapshot(client));
     this.check(binding); // close may have completed while snapshot awaited
     if(this.sequence===Number.MAX_SAFE_INTEGER)fail('SEQUENCE_EXHAUSTED');
     const sequence=++this.sequence,screen=safeScreen(snapshot.text);
-    if(client===this.agent)this.agentSnapshot={sequence,snapshotId:snapshot.snapshotId};
+    if(!observationOnly&&client===this.agent)this.agentSnapshot={sequence,snapshotId:snapshot.snapshotId};
     return {binding:this.binding,sequence,after,resync:after!==sequence-1,
       skippedSnapshots:sequence-after-1,text:screen.text,truncated:screen.truncated||snapshot.truncated,
       snapshotId:snapshot.snapshotId,generation:snapshot.generation,lossless:false,
@@ -61,14 +64,18 @@ export class SnapshotBridge {
   }
   operation(binding,operationId) {this.check(binding);return this.session.operation(this.agent,operationId);}
   openHuman() {if(this.closed)fail('BRIDGE_CLOSED');if(this.human)fail('HUMAN_ALREADY_CONNECTED');
-    this.human=this.session.connect('human');return this.human;}
-  disconnectHuman(id) {if(this.human!==id)return;this.session.disconnect(id);this.human=null;this.agentSnapshot=null;}
+    this.human=this.session.connect('human');try{this.orderedHuman=this.session.orderedOutput?.connect('human');}catch{this.orderedHuman=null;}return this.human;}
+  disconnectHuman(id) {if(this.human!==id)return;this.orderedHuman?.close();this.orderedHuman=null;this.session.disconnect(id);this.human=null;this.agentSnapshot=null;}
   async humanRequest(id,r) {
     if(this.human!==id)fail('UNKNOWN_HUMAN');
     if(r.action==='status')return this.status();
     this.check(r.binding);
     switch(r.action) {
       case 'read':return this.read(id,r.binding,r.after);
+      case 'ordered-read':
+        if(!this.orderedHuman)fail('OUTPUT_DISABLED');
+        if(!r.identity||Object.keys(r.identity).length!==6||Object.keys(this.session.orderedOutput.identity).some(k=>r.identity[k]!==this.session.orderedOutput.identity[k]))fail('OUTPUT_IDENTITY_CHANGED');
+        return this.orderedHuman.read(r.cursor);
       case 'grant':this.agentSnapshot=null;return this.session.grant(id,this.agent,r.ttlMs);
       case 'pause':return this.cancel(r.binding,r.operationId,true);
       case 'input':
@@ -79,7 +86,7 @@ export class SnapshotBridge {
       default:fail('UNKNOWN_ACTION');
     }
   }
-  close() {if(this.closing)return this.closing;this.closed=true;this.agentSnapshot=null;
+  close() {if(this.closing)return this.closing;this.closed=true;this.agentSnapshot=null;this.orderedAgent?.close();this.orderedHuman?.close();
     this.closing=this.session.stop(this.owner);return this.closing;}
 }
 

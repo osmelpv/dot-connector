@@ -2,7 +2,8 @@ import {readFrames} from './tmux-local.mjs';
 import {JSONRPCMessageSchema} from '@modelcontextprotocol/sdk/types.js';
 // SDK-compatible stdio transport, bounded before JSON parsing. No network socket.
 export class BoundedMcpStdio {
-  constructor(input=process.stdin,output=process.stdout) {
+  constructor(input=process.stdin,output=process.stdout,{outputReader=false}={}) {
+    this.frameLimit=outputReader?32768:16384;
     this.input=input;this.output=output;this.closed=false;this.started=false;
     this.requests=new Set();this.writes=new Set();this.burst=0;this.window=Date.now();
   }
@@ -19,7 +20,7 @@ export class BoundedMcpStdio {
         this.requests.add(message.id);
       }
       this.onmessage?.(message);return true;
-    },()=>{this.onerror?.(Error('MCP_FRAME_OR_RATE_LIMIT'));void this.close();},16384);
+    },()=>{this.onerror?.(Error('MCP_FRAME_OR_RATE_LIMIT'));void this.close();},this.frameLimit);
   }
   send(message) {
     const line=JSON.stringify(message)+'\n',bytes=Buffer.byteLength(line);

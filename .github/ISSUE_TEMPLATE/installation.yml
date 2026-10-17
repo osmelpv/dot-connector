@@ -1,0 +1,40 @@
+name: Installation or setup problem
+description: Report a reproducible installation or prerequisite problem.
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic data. Remove secrets, personal paths, private configuration and live terminal output. Do not attach unreviewed logs or screenshots."
+  - type: input
+    id: revision
+    attributes:
+      label: Commit SHA or release tag
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and versions
+      description: OS, WSL version if applicable, Node, npm, Python and tmux. No environment-variable dumps.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Exact commands and minimal synthetic reproduction
+      description: Replace personal paths with placeholders and include exit codes.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual results
+      description: Include test counts, skip reason and a redacted error summary.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Publication review
+      options:
+        - label: I removed credentials, private configuration, personal paths and live-session content.
+          required: true

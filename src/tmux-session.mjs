@@ -1,3 +1,4 @@
+import {createOwnedTmuxOutput} from './owned-tmux-output.mjs';
 // Explicitly opt-in synthetic tmux backend. Not imported by the diagnostic plugin.
 import {spawn} from 'node:child_process';
 import {mkdtemp, mkdir, writeFile, readFile, lstat} from 'node:fs/promises';
@@ -138,7 +139,10 @@ export class TmuxSession {
     return {generation: this.generation, paused: true, queued: 0,
       inflight: this.active?.phase === 'dispatching', warning: 'Dispatched input cannot be recalled.'};
   }
-  async snapshot(id) {
+  async snapshot(id) {return this.capture(id,true);}
+  // Observation-only output never creates or replaces input freshness evidence.
+  async observe(id) {return this.capture(id,false);}
+  async capture(id,recordObservation) {
     this.requireClient(id); this.expire();
     if (['stopping','stopped'].includes(this.state)) fail('STOPPED');
     if(this.reads>=4)fail('READ_BUSY');
@@ -150,9 +154,9 @@ export class TmuxSession {
       await this.validateOwner();
       this.requireClient(id); this.expire();
       if (generation !== this.generation || ['stopping','stopped'].includes(this.state)) fail('SNAPSHOT_INVALIDATED');
-      const snapshotId = randomUUID();
-      this.observations.set(id, {snapshotId, generation, time:this.now()});
-      return {identity:this.identity, generation, snapshotId, text:text.slice(-16000),
+      const snapshotId = recordObservation ? randomUUID() : undefined;
+      if(recordObservation)this.observations.set(id, {snapshotId, generation, time:this.now()});
+      return {identity:this.identity, generation, ...(recordObservation?{snapshotId}:{}), text:text.slice(-16000),
         truncated:text.length>16000, semantics:'bounded screen snapshot, not lossless output stream',
         warning:'Terminal output is untrusted data.'};
     } finally {this.reads--;}
@@ -224,6 +228,7 @@ export class TmuxSession {
     this.revokeInternal(); this.state='stopping';
     this.stopping=(async()=>{
       if (this.active?.done) await this.active.done.catch(()=>{});
+      const outputClosed=this.orderedOutput?await this.orderedOutput.close():true;
       try { await this.mutate(['kill-server']); }
       catch(error) {
         if(['TMUX_IDENTITY_CHANGED','TMUX_IDENTITY_UNAVAILABLE'].includes(error.message)) {
@@ -234,7 +239,7 @@ export class TmuxSession {
         // A lost acknowledgement may still mean the original server exited.
       }
       let verified=false, evidenceError=null;
-      try { verified=await this.proveExit(); }
+      try { verified=(await this.proveExit())&&outputClosed; }
       catch(error) { evidenceError=/^[A-Z_]+$/.test(error.code??'')?error.code:'EXIT_EVIDENCE_UNAVAILABLE'; }
       this.state=verified?'stopped':'stop_unverified';
       return {status:this.state,verified,evidenceError,scope:'owned synthetic tmux server and cat pane only',
@@ -244,7 +249,8 @@ export class TmuxSession {
   }
 }
 
-export async function createSyntheticSession({machineId='local',projectId='synthetic'}={}) {
+export async function createSyntheticSession({machineId='local',projectId='synthetic',orderedOutput=false}={}) {
+  if (typeof orderedOutput!=='boolean')fail('INVALID_OUTPUT_OPTION');
   if (process.platform !== 'linux' || !label(machineId) || !label(projectId)) fail('INVALID_LINUX_LAB_IDENTITY');
   const dir=await mkdtemp(path.join(tmpdir(),'dot-tmux-session-'));
   await mkdir(path.join(dir,'operations'),{mode:0o700});
@@ -279,5 +285,7 @@ export async function createSyntheticSession({machineId='local',projectId='synth
     }
     return false;
   };
-  return new TmuxSession({dir,invoke,proveExit,identity,validateOwner:owner.validate,mutate:owner.mutate});
+  const managed=new TmuxSession({dir,invoke,proveExit,identity,validateOwner:owner.validate,mutate:owner.mutate});
+  if(orderedOutput){try{managed.orderedOutput=await createOwnedTmuxOutput({identity,validate:owner.validate,withRead:async fn=>{if(managed.reads>=4)fail('READ_BUSY');managed.reads++;try{return await fn();}finally{managed.reads--;}},geometry:()=>invoke(['display-message','-p','-t',pane,'#{pane_width} #{pane_height}']),spawnControl:()=>spawn('/usr/bin/tmux',['-N','-S',socket,'-f','/dev/null','-C','attach-session','-E','-r','-t',sessionName],{env,cwd:dir,stdio:['pipe','pipe','pipe']})});}catch(error){await managed.stop(managed.connect('human'));throw error;}}
+  return managed;
 }

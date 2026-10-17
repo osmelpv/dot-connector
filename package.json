@@ -16,7 +16,10 @@
     ".mcp.json",
     ".agents/plugins/marketplace.json",
     "!src/native-console-prototype.cs",
-    "!test/console-prototype.test.mjs"
+    "!test/console-prototype.test.mjs",
+    "CONTRIBUTING.md",
+    "!docs/PROPOSAL-*.md",
+    "!docs/*-REVIEW.md"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",
@@ -26,14 +29,16 @@
     "start": "node src/server.mjs",
     "smoke": "node scripts/smoke.mjs",
     "start:plugin": "node src/plugin-server.mjs",
-    "smoke:plugin": "node scripts/plugin-smoke.mjs"
+    "smoke:plugin": "node scripts/plugin-smoke.mjs",
+    "check:node": "node scripts/check-node.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",
+    "@xterm/xterm": "6.0.0",
     "zod": "3.25.76"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "bin": {
     "dot-connector": "scripts/dot-connector.mjs"

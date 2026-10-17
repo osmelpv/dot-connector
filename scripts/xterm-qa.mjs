@@ -1,0 +1,22 @@
+#!/usr/bin/env node
+// Export local assets and a synthetic recording only. Never start a PTY or server.
+import {readFile} from 'node:fs/promises';
+import {randomBytes,createHash} from 'node:crypto';
+import {XtermObserver} from '../src/xterm-observer.mjs';
+const [flag,file]=process.argv.slice(2);if(flag!=='--test-fixture'||!file||process.argv.length!==4)throw Error('TEST_FIXTURE_REQUIRED');
+const raw=await readFile(file);if(raw.length>262144)throw Error('TEST_FIXTURE_LIMIT');const fixture=JSON.parse(raw);
+if(fixture.source!=='test-owned-pty'||JSON.stringify(fixture.geometry)!=='[80,24]'||fixture.views?.length!==2||JSON.stringify(fixture.views[0].frames)!==JSON.stringify(fixture.views[1].frames))throw Error('TEST_FIXTURE_REQUIRED');
+const pkg=JSON.parse(await readFile(new URL('../node_modules/@xterm/xterm/package.json',import.meta.url)));if(pkg.version!=='6.0.0')throw Error('XTERM_VERSION');
+const js=await readFile(new URL('../node_modules/@xterm/xterm/lib/xterm.js',import.meta.url),'utf8'),css=await readFile(new URL('../node_modules/@xterm/xterm/css/xterm.css',import.meta.url),'utf8'),license=await readFile(new URL('../node_modules/@xterm/xterm/LICENSE',import.meta.url),'utf8');
+if(/<\/script/i.test(js)||/<\/style/i.test(css))throw Error('ASSET_EMBED_REQUIRES_REVIEW');
+const nonce=randomBytes(18).toString('base64'),payload=JSON.stringify(fixture).replaceAll('<','\\u003c'),hash=createHash('sha256').update(js).digest('hex');
+process.stdout.write(`<!doctype html><html lang="es"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'"><title>xterm 6.0.0 — observador sintético</title><style>${css}
+body{font:16px system-ui;background:#111827;color:#e5e7eb;margin:20px}main{display:flex;gap:18px;flex-wrap:wrap}section{max-width:100%;overflow:auto;background:#1f2937;padding:14px}small{display:block;overflow-wrap:anywhere}button{padding:10px;margin:4px}.terminal-host{width:760px;height:450px}</style>
+<h1>Dos observadores xterm · PTY sintética</h1><p>Grabación de test, sin sesión viva ni canal de entrada. OSC 0/1/2/8/52 bloqueados antes de escribir; assets locales. Geometría inicial ordenada 80×24; resize dinámico deshabilitado.</p><button id="replay">Recrear desde inicio conocido</button><button id="gap">Simular gap del agente</button><p id="status"></p><main><section><h2>Humano</h2><small id="human-meta"></small><div class="terminal-host" id="human"></div></section><section><h2>Agente</h2><small id="agent-meta"></small><div class="terminal-host" id="agent"></div></section></main>
+<details><summary>Integridad y licencia</summary><p>Asset SHA-256: ${hash}</p><pre>${license.replaceAll('&','&amp;').replaceAll('<','&lt;')}</pre></details>
+<script nonce="${nonce}">${js}</script><script type="application/json" id="fixture">${payload}</script><script nonce="${nonce}">
+const XtermObserver=${XtermObserver.toString()};const fixture=JSON.parse(document.getElementById('fixture').textContent),observers=[];let busy=false;
+function meta(i){const s=observers[i].status();document.getElementById(i?'agent-meta':'human-meta').textContent=s.state+' · offset '+s.offset+' · seq '+s.seq+' · OSC bloqueados '+s.blockedOsc+' · entrada reenviada '+s.forwardedInputBytes+' · epoch '+s.identity.streamEpoch;}
+async function replay(gap=false){if(busy)return;busy=true;document.getElementById('status').textContent='Reproduciendo datos sintéticos';try{for(const o of observers)o.close();observers.length=0;for(let i=0;i<2;i++){const target=document.getElementById(i?'agent':'human');target.textContent='';const v=new XtermObserver(Terminal,fixture.views[i].frames[0].identity,{atSeq:0,atOffset:0,columns:80,rows:24});v.open(target);observers.push(v);}for(let i=0;i<2;i++){const frames=fixture.views[i].frames;try{for(let n=0;n<frames.length;n++){if(gap&&i===1&&n===1)continue;await observers[i].accept(frames[n]);}}catch{document.getElementById(i?'agent':'human').textContent='GAP: renderer detenido. Requiere inicio conocido completo.';}meta(i);}document.getElementById('status').textContent=gap?'Gap simulado: sin continuar desde sufijo incompleto.':'EOF: comprobar ambas vistas. No se declara compatibilidad general con TUIs.';}finally{busy=false;}}
+document.getElementById('replay').addEventListener('click',()=>replay());document.getElementById('gap').addEventListener('click',()=>replay(true));replay();
+</script></html>`);
