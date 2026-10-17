@@ -40,9 +40,10 @@ tail -12 "$QA_ROOT/evidence/tests.log"
 - [ ] Expected counts depend on the branch; compare only with the matching row:
   - Baseline `review/ordered-output-collaborator-onboarding` (8e8440f): 251 tests,
     250 pass, zero failures, one intentional skip.
-  - Integrated review `review/integrated-setup-preview`: 329 tests, 328 pass, zero
-    failures, one intentional skip (321/320 at 02a9088, before the configurator
-    usability tests).
+  - Integrated review `review/integrated-setup-preview`: 338 tests, 337 pass, zero
+    failures, one intentional skip (321/320 at 02a9088, 329/328 at 554310b,
+    333/332 at b6f0b5a and 336/335 at e8800d4, before the configurator usability,
+    QA diagnostics, QA startup/cleanup and retained-state cleanup tests).
   In both, the skip is the Windows identity helper; build/package exit zero; no
   remaining fixtures in the isolated tmp directory.
   Investigate any changed count or skip reason rather than treating it as a pass.

@@ -90,7 +90,7 @@ Para repetir las pruebas Linux, con Python 3 y tmux ya disponibles, usa el bloqu
 | Referencia | Rama | Pruebas | QA Chromium |
 |---|---|---|---|
 | Baseline | `review/ordered-output-collaborator-onboarding` (8e8440f) | 251: 250 aprobadas, 0 fallos, 1 omitida | `browser-observer-qa.mjs`: 7 grupos |
-| Revisión integrada | `review/integrated-setup-preview` | 329: 328 aprobadas, 0 fallos, 1 omitida (321/320 en 02a9088, antes de las pruebas de usabilidad del configurador) | `browser-observer-qa.mjs`: 7 grupos y `browser-human-view-qa.mjs`: 11 grupos |
+| Revisión integrada | `review/integrated-setup-preview` | 338: 337 aprobadas, 0 fallos, 1 omitida (321/320 en 02a9088, 329/328 en 554310b, 333/332 en b6f0b5a y 336/335 en e8800d4, antes de las pruebas de usabilidad del configurador, del diagnóstico de la QA, del diagnóstico de arranque y limpieza y de la conservación del estado retenido) | `browser-observer-qa.mjs`: 7 grupos y `browser-human-view-qa.mjs`: 11 grupos |
 
 La prueba omitida es la del helper de identidad de Windows. Las dos QA Chromium son distintas: `browser-observer-qa.mjs` no crea ningún runtime: reproduce en memoria fixtures y la traza sintética grabada por el bloque del baseline (`OBSERVER_QA_FRAMES`). `browser-human-view-qa.mjs` sí crea su propio runtime sintético y levanta la vista humana local. Usa una instalación existente de Playwright 1.58.2 y su Chromium, con rutas explícitas; no apuntes a sesiones ni configuraciones privadas:
 

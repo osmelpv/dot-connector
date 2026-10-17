@@ -53,6 +53,37 @@ geometry stays 80×24; window resizing changes only the outer page layout.
 Tests use only fresh synthetic runtime/panes. Browser QA requires an existing
 authorized Playwright installation, supplied through PLAYWRIGHT_MODULE, and
 HUMAN_VIEW_QA_OUTPUT for evidence. Run `node scripts/browser-human-view-qa.mjs`.
+For intermittent failures (#12) it also writes `diagnostics.json` after cleanup,
+whether the run passed, failed during startup, or its cleanup failed. The
+collector is created before startup, so a failure in `runtime-ready`, `view-url`
+or `cli-ready` is recorded too. The file holds at most 200 entries with
+millisecond timings: each harness wait (`runtime-ready`, `view-url`, `cli-ready`,
+`marker-dispatched`) with `wait`/`ok`/`expired`, browser steps, the known
+`ready`/`closed` events read only from the runtime's stderr, known CLI markers,
+stderr lines made only of UPPER_CASE codes, each process exit code or signal,
+and each failed cleanup step as a resource name plus code. JSON-shaped lines
+from other sources, such as pane content echoed by the CLI, are dropped. It
+never stores raw output, pane content, paths, URLs or socket names.
+
+Cleanup attempts every resource (browser context, browser, CLI, runtime, runtime
+`closed` verification, fixtures) even after one fails; `cleanup.json` lists the
+failed steps by code (codes longer than 64 characters become `CLEANUP_FAILED`).
+The retained runtime state (socket, ledger) is deleted only when the runtime's
+`closed` event reports `verified: true`; otherwise it is kept for inspection and
+the `fixtures` step reports `OWNED_FIXTURES_UNVERIFIED`. The original error stays
+the one reported, and cleanup failures are kept beside it, never in its place.
+A failed write of `failure.json`, `diagnostics.json` or `cleanup.json` is
+printed to stderr by artifact name and code and does not replace that error.
+Timeouts and the absence of retries are unchanged.
+
+The artifacts differ in what they may contain. `diagnostics.json` and
+`cleanup.json` are sanitized as described above. `failure.json` is not: besides
+the error, the expired `phase` and a copy of the diagnostics, it still keeps raw
+CLI and runtime stderr (which includes socket paths and binding data), HTTP
+response bodies for 4xx/5xx responses and the page status text. Treat
+`failure.json` and screenshots as local evidence: nothing is uploaded or
+published automatically, and only `diagnostics.json`, or excerpts reviewed by
+hand, should be shared in an issue or PR.
 No installation, tunnel activation, real terminal adoption or ConPTY claim is
 part of this increment.
 
