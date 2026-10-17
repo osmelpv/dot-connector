@@ -1,9 +1,10 @@
 # dot-connector
 
 Experimental terminal connector. The default plugin reports installation status
-only and starts no terminal. Version 0.1.12 adds an opt-in synthetic tmux session,
-bounded MCP text snapshots and local configuration. Cloud-to-local dot tool
-delivery, arbitrary terminal adoption and full VT streaming are **not verified**.
+only and starts no terminal. Published prerelease 0.1.13 provides an opt-in synthetic tmux session,
+bounded MCP text snapshots, local configuration and human discovery.
+This branch adds unreleased opt-in ordered output and an observer. Cloud-to-local
+delivery and arbitrary terminal adoption remain **not verified**.
 GentleShell JSONL RPC is not a shared terminal or proof of adopting its tabs.
 
 ## Install an isolated runtime
@@ -16,10 +17,10 @@ with lifecycle scripts disabled. It never asks for a ChatGPT key.
 From a new directory, choose fresh absolute paths outside project repositories:
 
 ```sh
-BOOTSTRAP_SOURCE="$HOME/dot-connector-bootstrap-0.1.12"
+BOOTSTRAP_SOURCE="$HOME/dot-connector-bootstrap-0.1.13"
 INSTALL_ROOT="$HOME/dot-connector-bridge-review"
-git clone --branch v0.1.12 --depth 1 https://github.com/osmelpv/dot-connector.git "$BOOTSTRAP_SOURCE"
-node "$BOOTSTRAP_SOURCE/scripts/install-diagnostic.mjs" --root "$INSTALL_ROOT" --version 0.1.12
+git clone --branch v0.1.13 --depth 1 https://github.com/osmelpv/dot-connector.git "$BOOTSTRAP_SOURCE"
+node "$BOOTSTRAP_SOURCE/scripts/install-diagnostic.mjs" --root "$INSTALL_ROOT" --version 0.1.13
 "$INSTALL_ROOT/dot-connector" version
 "$INSTALL_ROOT/dot-connector" status
 ```
@@ -34,8 +35,8 @@ wrapper also prepares Windows helpers. [Installation details](docs/LOCAL-INSTALL
 ## Update, rollback and removal
 
 ```sh
-"$INSTALL_ROOT/dot-connector" update --check --version 0.1.12
-"$INSTALL_ROOT/dot-connector" update --version 0.1.12
+"$INSTALL_ROOT/dot-connector" update --check --version 0.1.13
+"$INSTALL_ROOT/dot-connector" update --version 0.1.13
 "$INSTALL_ROOT/dot-connector" version
 "$INSTALL_ROOT/dot-connector" update --check --channel experimental
 "$INSTALL_ROOT/dot-connector" update --rollback
@@ -131,7 +132,7 @@ Failure-path tests use synthetic data. These checks do not prove cloud delivery.
 
 ## Documentation index
 
-- [Release 0.1.12](docs/RELEASE-0.1.12.md), [private configuration](docs/PRIVATE-CONFIG.md).
+- [Release 0.1.13](docs/RELEASE-0.1.13.md), [private configuration](docs/PRIVATE-CONFIG.md).
 - [Local tmux design](docs/TMUX-LOCAL.md), [MCP bridge](docs/TMUX-BRIDGE.md).
 - [Existing execution CLI](docs/CLI.md), [logs/WSL metadata](docs/LOGGING-WSL.md).
 - [Install/rollback](docs/INSTALL.md), [local archives](docs/LOCAL-INSTALL.md), [managed updates](docs/UPDATE.md).
@@ -146,3 +147,21 @@ UNLICENSED. Public visibility does not grant permission to reuse, modify or
 redistribute this code. npm publication remains disabled with private=true.
 
 Operator discovery for experimental configured instances: [local guide](docs/HUMAN-DISCOVERY.md), [0.1.13 notes](docs/RELEASE-0.1.13.md).
+
+## Unreleased development branch
+
+The trailing `--ordered-output-v2` flag connects the existing owned synthetic
+session to a bounded byte journal and two read-only MCP tools. It is OFF by
+default, keeps fixed 80x24 geometry, and creates no second PTY. Legacy grants,
+input freshness and no-replay rules remain in force. The human CLI still shows
+snapshots; browser QA replays recorded synthetic output, not a live cloud feed.
+
+- [Runtime and lifecycle](docs/RUNTIME-ORDERED-OUTPUT.md), [MCP adapter](docs/MCP-ORDERED-OUTPUT.md).
+- [Byte protocol](docs/ORDERED-OUTPUT.md), [synthetic geometry](docs/ORDERED-RESIZE.md), [PTY sources](docs/PTY-OUTPUT-SOURCE.md).
+- [Snapshot fallback](docs/SNAPSHOT-OUTPUT.md), [literal presentation](docs/OUTPUT-PRESENTATION.md), [xterm observer](docs/XTERM-OBSERVER.md).
+- [Planning-only configurator](docs/CONFIGURATOR.md): detect/plan/validate/review/status plus an interactive draft wizard; no apply or start.
+- [List and duplicate profile drafts](docs/PROFILE-PLANS.md) without granting access or persisting configuration.
+- [Authorized collaborator guide](CONTRIBUTING.md) and [onboarding TODO](docs/COLLABORATOR-TODO.md).
+
+The published v0.1.13 installer above does not install these branch changes.
+Use the collaborator checkout instructions for review. No new release is made.

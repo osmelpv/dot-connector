@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Local human snapshot view. Never interprets received text as VT sequences.
+import {serveOrderedHumanView} from '../src/local-human-view.mjs';
 import {createInterface} from 'node:readline';
 import {randomUUID} from 'node:crypto';
 import {connectLocal} from '../src/tmux-local.mjs';
@@ -9,15 +10,19 @@ let [socket,mode,...extra]=process.argv.slice(2),expected;
 if(socket==='--config'){
  try{
   const [selection,id,once,...rest]=extra;
-  if(selection!=='--instance'||!id||rest.length||(once&&once!=='--once'))throw Error('INSTANCE_SELECTION_REQUIRED');
+  if(selection!=='--instance'||!id||rest.length||(once&&!['--once','--ordered-view'].includes(once)))throw Error('INSTANCE_SELECTION_REQUIRED');
   const resolved=await resolveInstance(mode,id);socket=resolved.socket;expected=resolved.binding;mode=once;extra=[];
  }catch(e){console.error(/^(INSTANCE|CONFIG)_[A-Z_]+$/.test(e.message)?e.message:'INSTANCE_DISCOVERY_FAILED');process.exit(2);}
 }
-if(!socket||extra.length||(mode&&mode!=='--once')){console.error('Usage: tmux-bridge-view.mjs SOCKET [--once]');process.exitCode=2;}
+if(!socket||extra.length||(mode&&!['--once','--ordered-view'].includes(mode))){console.error('Usage: tmux-bridge-view.mjs SOCKET [--once|--ordered-view]');process.exitCode=2;}
 else {
-  let client;
+  let client,viewServer;
   try{client=await connectLocal(socket,'human');if(expected&&!sameBinding(expected,client.identity)){client.close();throw Error('INSTANCE_BINDING_MISMATCH');}}
   catch(e){console.error(/^[A-Z_]+$/.test(e.message)?e.message:'VIEW_CONNECTION_FAILED');process.exit(1);}
+  if(mode==='--ordered-view'){
+    try{viewServer=await serveOrderedHumanView(client);console.log('Read-only browser view: '+viewServer.url+' (open manually; controls stay in this CLI)');}
+    catch{client.close();console.error('ORDERED_VIEW_UNAVAILABLE');process.exit(1);}
+  }
   const binding=client.identity;let after=0,reading=false,closed=false,lastView=null;
   const read=async()=>{if(reading||closed)return;reading=true;try{
     const r=await client.request({action:'read',binding,after});after=r.sequence;
@@ -45,6 +50,6 @@ else {
       }catch(e){console.error(/^[A-Z_]+$/.test(e.message)?e.message:'VIEW_OPERATION_FAILED');}
       finally{busy=false;}
     });
-    rl.once('close',()=>{clearInterval(timer);closed=true;client.close();});
-  }}catch(e){client.close();console.error(/^[A-Z_]+$/.test(e.message)?e.message:'VIEW_FAILED');process.exitCode=1;}
+    rl.once('close',()=>{clearInterval(timer);closed=true;client.close();void viewServer?.close();});
+  }}catch(e){client.close();await viewServer?.close();console.error(/^[A-Z_]+$/.test(e.message)?e.message:'VIEW_FAILED');process.exitCode=1;}
 }

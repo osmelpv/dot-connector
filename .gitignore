@@ -17,3 +17,9 @@ inspection-helper/
 # Local per-user settings never belong in source/release assets
 .private/
 *.private.json
+
+# Local design drafts and QA evidence are not publication inputs.
+/docs/PROPOSAL-*.md
+/docs/*-REVIEW.md
+/evidence-*/
+/observer-qa/

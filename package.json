@@ -16,7 +16,10 @@
     ".mcp.json",
     ".agents/plugins/marketplace.json",
     "!src/native-console-prototype.cs",
-    "!test/console-prototype.test.mjs"
+    "!test/console-prototype.test.mjs",
+    "CONTRIBUTING.md",
+    "!docs/PROPOSAL-*.md",
+    "!docs/*-REVIEW.md"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",
@@ -30,6 +33,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.27.1",
+    "@xterm/xterm": "6.0.0",
     "zod": "3.25.76"
   },
   "engines": {
