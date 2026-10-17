@@ -160,6 +160,7 @@ snapshots; browser QA replays recorded synthetic output, not a live cloud feed.
 - [Byte protocol](docs/ORDERED-OUTPUT.md), [synthetic geometry](docs/ORDERED-RESIZE.md), [PTY sources](docs/PTY-OUTPUT-SOURCE.md).
 - [Snapshot fallback](docs/SNAPSHOT-OUTPUT.md), [literal presentation](docs/OUTPUT-PRESENTATION.md), [xterm observer](docs/XTERM-OBSERVER.md).
 - [Planning-only configurator](docs/CONFIGURATOR.md): detect/plan/validate/review/status plus an interactive draft wizard; no apply or start.
+- [List and duplicate profile drafts](docs/PROFILE-PLANS.md) without granting access or persisting configuration.
 - [Authorized collaborator guide](CONTRIBUTING.md) and [onboarding TODO](docs/COLLABORATOR-TODO.md).
 
 The published v0.1.13 installer above does not install these branch changes.

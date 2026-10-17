@@ -2,7 +2,7 @@
 
 Implemented CLI: `node scripts/configure.mjs detect|plan|validate|review|status|wizard`. This standalone entrypoint deliberately bypasses the operational CLI, configuration, process, transport and logging paths. It never applies configuration, starts processes, creates credentials or approves a request. The operational `dot-connector` CLI is unchanged.
 
-All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. JSON commands read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. The wizard reads explicit TTY answers only; JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
+All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. JSON commands and wizard --file read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. Interactive answers require a TTY; wizard --file additionally loads the explicitly named plan. JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
 
 Actual commands:
 
@@ -75,7 +75,7 @@ it does not accept any pending action. Nothing is written or activated by the CL
 stdin and stderr must both be TTYs. Otherwise CONFIGURATOR_TTY_REQUIRED returns a
 JSON error with instructions to use plan --file /absolute/request.json --json.
 The five JSON commands remain available to agents, including detect and status.
-The wizard accepts no flags. Unit tests use scripted questions and simulated
+The wizard accepts only optional --file ABSOLUTE_PLAN_PATH; no approval or secret flags are accepted. Unit tests use scripted questions and simulated
 streams. The opt-in Linux PTY tests create their own new terminal and Node child;
 they never adopt an existing terminal or change an active runtime.
 
@@ -112,3 +112,57 @@ PTY tests validate the actual line editor and protocol at narrow dimensions, not
 pixel rendering, font behavior, accessibility or Windows ConPTY. Review text can
 exceed a short terminal's height and remains in its scrollback; no pager is created.
 No assertion establishes OS isolation, anonymity or permission enforcement.
+
+## Operations on existing profile drafts
+
+Use [profile plan operations](PROFILE-PLANS.md) to list or duplicate profiles from
+a validated plan. The JSON CLI and wizard --file share these operations and never
+modify runtime configuration.
+
+## List and duplicate profiles interactively
+
+```sh
+node scripts/configure.mjs wizard --file "$PWD/plan.json"
+```
+
+This loads a raw validated plan or successful command=plan envelope using the same
+32 KiB reader as the JSON commands. It checks TTY availability before opening the
+named file, and validates schema, digest and policy before displaying any plan
+content. Secret/unknown fields, altered plans and unsupported envelopes fail with
+a stable JSON error, without echoing values or prompting. stdin and stderr must
+both be TTYs; stdout can be redirected to a fresh output file by the caller.
+
+The wizard immediately lists profile IDs, modes and unverified declared folders.
+Choose duplicate, select an existing source ID, then supply a unique new name,
+platform and normalized absolute folder. Each invalid answer has three attempts;
+there are no default choices or automatic suffixes. The same duplicateProfile
+operation resets all requested capabilities to false and the destination to logical
+local/local-preview. It carries no grants, connections or runtime identity.
+
+The updated list is shown in memory. More copies are allowed only up to eight
+profiles. At eight, duplication is unavailable; review/export or cancellation remain
+possible. Choose export to show the complete common review and digest, then type
+the exact word EXPORT. Choosing export alone, empty input and yes do not emit a plan.
+Choosing export without making a copy returns an unchanged validated draft.
+
+The original object/file remains untouched. :cancel, Ctrl+C or Ctrl+D at an empty
+prompt discard the in-memory changes and return an error envelope with exit 1.
+No new file is written by the CLI. The 1024-byte answer and 32768-byte total TTY
+input limits still apply. Shell redirection can overwrite a file independently of
+the CLI, so never redirect output onto the input plan.
+
+Unit and real owned-PTY tests cover choice/collisions, duplicate/export, cancellation
+after creating a copy, unchanged export, forbidden file fields/flags and oversized
+files. The loaded-plan workflow is also exercised at 32x8 dimensions with separate
+JSON stdout. No existing terminal is adopted. Visual rendering, accessibility and
+ConPTY remain outside this Linux PTY evidence.
+
+## Explicit option values
+
+All value options accept either --option VALUE or --option=VALUE, including --file
+for plan/validate/review/status, profiles commands and wizard. Use the equals form
+for values beginning with --; for example --from=--source and --name=--copy preserve
+valid profile labels. Separated option-looking values remain errors, so an omitted
+value cannot silently consume the next option. Only the first equals is structural.
+Unknown, empty or repeated options fail; boolean flags accept no value. Shell quoting
+is still the caller's responsibility. See [profile examples](PROFILE-PLANS.md).
