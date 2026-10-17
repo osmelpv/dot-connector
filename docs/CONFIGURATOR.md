@@ -1,8 +1,8 @@
 # Non-operative configurator: implemented commands
 
-Implemented CLI: `node scripts/configure.mjs detect|plan|validate|review|status`. This standalone entrypoint deliberately bypasses the operational CLI, configuration, process, transport and logging paths. It never applies configuration, starts processes, creates credentials or approves a request. The operational `dot-connector` CLI is unchanged.
+Implemented CLI: `node scripts/configure.mjs detect|plan|validate|review|status|wizard`. This standalone entrypoint deliberately bypasses the operational CLI, configuration, process, transport and logging paths. It never applies configuration, starts processes, creates credentials or approves a request. The operational `dot-connector` CLI is unchanged.
 
-All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. Only explicit regular files are read, at most 32768 bytes, without symlink following. No stdin interface, environment inventory, shell command or config discovery is implemented.
+All responses are JSON envelopes with schemaVersion 1, command, ok and result (or a stable error code). `review --human` renders the same validated plan and SHA-256 as JSON review. Errors never echo invalid input, file contents or stack traces. JSON commands read only explicitly named regular files, at most 32768 bytes. A final symlink is rejected; symlinks in parent directories are not an isolation boundary. The wizard reads explicit TTY answers only; JSON commands never consume stdin. No environment inventory, shell command or config discovery is implemented.
 
 Actual commands:
 
@@ -28,6 +28,87 @@ Proyecto always reports isolation required/unavailable with no verified backend.
 
 `detect` reports implemented planner capabilities and process.platform only. It does not probe binaries, permissions, folders, active config, backend or network. `validate` verifies schema, canonical digest and policy-derived fields; valid means a well-formed consistent draft, not ready/approved/executable. Recomputing the digest after falsifying availability does not bypass policy validation. The digest is not a signature or authority token. Review performs no state transition.
 
-Runtime Zod schemas are exported as requestSchema and planSchema from `src/configurator.mjs`, using the existing dependency. Unknown fields, duplicate profile IDs, fake approval/backend evidence, unsupported versions and credentials fields are rejected. The bounded JSON reader additionally rejects duplicate decoded keys, forbidden prototype keys, excessive nesting and invalid UTF-8. No approval authority or configurable expiration is invented.
+Runtime Zod schemas are exported as requestSchema and planSchema from `src/configurator.mjs`, using the existing dependency. Unknown fields, duplicate profile IDs or lexical folder identities, fake approval/backend evidence, unsupported versions and credentials fields are rejected. The bounded JSON reader additionally rejects duplicate decoded keys, forbidden prototype keys, excessive nesting and invalid UTF-8. No approval authority or configurable expiration is invented.
 
 apply/up/down/revoke/setup, update/duplicate profile actions and interactive approval remain **proposals, not commands of this CLI**. There is no `--yes`, stdin approval, start action or installer. Only the subset described here is implemented. Grants, five-second freshness, lease and input arbitration are unaffected.
+
+## Interactive draft wizard
+
+Run from an interactive terminal:
+
+```sh
+node scripts/configure.mjs wizard > plan.json
+node scripts/configure.mjs validate --file "$PWD/plan.json" --json
+node scripts/configure.mjs review --file "$PWD/plan.json" --human
+node scripts/configure.mjs status --file "$PWD/plan.json" --json
+```
+
+Prompts and the review are written to stderr; stdout contains one versioned JSON
+plan envelope, identical to the plan command. Redirection is optional and is done
+by the caller's shell, not the wizard. Choose a fresh output file: shell redirection
+can truncate an existing file before the wizard starts. On failure stdout contains
+an error envelope, not a plan; check exit status before using the output.
+
+The wizard asks for a machine label, unique profile name, mode, project folder
+platform and absolute normalized path. Privacy intent has two implemented choices:
+request no capabilities, or request local read-only files/output. Neither grants
+access, reads files or sends data. Remote sharing, permission application, runtime
+activation and OS isolation are unavailable. Proyecto explicitly reports missing
+isolation; Consulta reports its missing query backend. No fallback mode is chosen.
+
+Up to eight profiles can be reviewed together. Both JSON and wizard reject duplicate
+profile IDs and duplicate lexical folder identities, ignoring a trailing separator
+and Windows path case. This is not realpath, symlink, mount or OS isolation checking;
+overlapping directories and aliases may still refer to the same resources.
+
+There are no default answers. Each prompt permits three invalid attempts, at most
+1024 bytes per answer and 32768 bytes of total TTY input. No input history is saved.
+Type :cancel at any prompt, Ctrl+C, or Ctrl+D at an empty prompt to cancel with a nonzero result and
+no plan. Do not enter credentials; the wizard never requests them. Errors do not
+echo rejected answers (a real terminal can still display what the person types).
+
+The final summary includes the same validated SHA-256 and pending approval state
+as review. Type the exact word EXPORT to emit the draft. Empty input, yes, --yes
+and piped confirmation never approve or export a draft. EXPORT means export only;
+it does not accept any pending action. Nothing is written or activated by the CLI.
+
+stdin and stderr must both be TTYs. Otherwise CONFIGURATOR_TTY_REQUIRED returns a
+JSON error with instructions to use plan --file /absolute/request.json --json.
+The five JSON commands remain available to agents, including detect and status.
+The wizard accepts no flags. Unit tests use scripted questions and simulated
+streams. The opt-in Linux PTY tests create their own new terminal and Node child;
+they never adopt an existing terminal or change an active runtime.
+
+## PTY review coverage
+
+With existing Python 3 and Linux, run:
+
+```sh
+DOT_TMUX_LAB_TEST=1 node --test --test-concurrency=1 --test-timeout=30000 test/configurator-wizard*.test.mjs test/configurator.test.mjs
+```
+
+The laboratory gives the new process a private HOME, TMPDIR and working directory,
+with stdin/stderr on a newly allocated PTY and stdout on a separate pipe. It checks
+the valid export, Ctrl+C, Ctrl+D at an empty prompt, invalid-answer retries, exact
+EXPORT, and 32-column by 8-row interaction. A pasted OSC attempt is not echoed as
+an active OSC command; direct control/bidi strings are rejected by the shared core.
+The filter includes ALM, LRM, RLM and Unicode line/paragraph separators, which could
+otherwise alter the visual reading of a folder in the review.
+Normal readline cursor-control output on stderr is expected; stdout must remain
+one parseable JSON line with no escape controls or prompt text.
+
+Only synthetic files are used. Inotify watches on a synthetic file and declared
+folder show no open/read events during the wizard process. Before/after inventories
+and marker content remain unchanged. This is evidence for those watched fixtures,
+not a syscall audit of every file the Node runtime reads. Static review confirms
+the wizard path calls no project-file read, file writer, subprocess or network API.
+
+A declared symlink folder remains unverified and unavailable; the wizard does not
+resolve it. The JSON-file reader separately rejects a final symlink but accepts an
+explicit regular file through a symlinked parent directory. It is not a sandbox
+and must not be used to certify project privacy or path containment.
+
+PTY tests validate the actual line editor and protocol at narrow dimensions, not
+pixel rendering, font behavior, accessibility or Windows ConPTY. Review text can
+exceed a short terminal's height and remains in its scrollback; no pager is created.
+No assertion establishes OS isolation, anonymity or permission enforcement.

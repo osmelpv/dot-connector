@@ -3,14 +3,15 @@ import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 const label=z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
-const safePath=z.string().min(1).max(512).refine(s=>!/[\x00-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]/.test(s));
+const safePath=z.string().min(1).max(512).refine(s=>!/[\x00-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/.test(s));
 const permissions=z.object({read_files:z.boolean().default(false),modify_files:z.boolean().default(false),execute:z.boolean().default(false),read_output:z.boolean().default(false)}).strict().default({});
 const folder=z.object({platform:z.enum(['linux','windows']),path:safePath}).strict().refine(f=>{
  const api=f.platform==='windows'?path.win32:path.posix;
  return api.isAbsolute(f.path)&&api.normalize(f.path)===f.path&&(f.platform!=='windows'||/^[A-Za-z]:\\/.test(f.path));
 });
+function folderKey(f){const api=f.platform==='windows'?path.win32:path.posix;let value=f.path;const root=api.parse(value).root;while(value.length>root.length&&value.endsWith(api.sep))value=value.slice(0,-1);return f.platform+':'+(f.platform==='windows'?value.toLowerCase():value);}
 const profile=z.object({profileId:label,mode:z.enum(['Personal','Proyecto','Consulta']),folder,destination:z.object({kind:z.enum(['local','remote']),id:label}).strict(),permissions}).strict();
-export const requestSchema=z.object({schemaVersion:z.literal(1),machineId:label,profiles:z.array(profile).min(1).max(8)}).strict().refine(r=>new Set(r.profiles.map(p=>p.profileId)).size===r.profiles.length);
+export const requestSchema=z.object({schemaVersion:z.literal(1),machineId:label,profiles:z.array(profile).min(1).max(8)}).strict().refine(r=>new Set(r.profiles.map(p=>p.profileId)).size===r.profiles.length&&new Set(r.profiles.map(p=>folderKey(p.folder))).size===r.profiles.length);
 const assessed=z.object({profileId:label,namespace:z.string(),available:z.boolean(),folderVerified:z.boolean(),terminalInput:z.boolean(),isolation:z.object({required:z.boolean(),state:z.enum(['unavailable','not_required','verified']),backend:z.string().nullable()}).strict(),desiredInitial:z.object({process:z.literal('stopped'),connection:z.literal('disconnected')}).strict(),blockers:z.array(z.string())}).strict();
 export const planSchema=z.object({schemaVersion:z.literal(1),kind:z.literal('configuration-plan'),intent:requestSchema,assessment:z.object({profiles:z.array(assessed),blockers:z.array(z.string()),pendingActions:z.array(z.object({profileId:label,action:z.enum(['configure_profile','read_files','modify_files','execute','read_output','select_destination','verify_isolation']),approval:z.literal('pending')}).strict())}).strict(),approval:z.literal('pending'),digest:z.string().regex(/^[a-f0-9]{64}$/)}).strict();
 export function canonical(v){if(Array.isArray(v))return '['+v.map(canonical).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';return JSON.stringify(v);}
@@ -39,7 +40,7 @@ export function reviewPlan(value){validatePlan(value);const lines=['CONFIGURATIO
  lines.push('Pending approval actions:');for(const a of value.assessment.pendingActions)lines.push(`${a.profileId}: ${a.action} [pending]`);
  lines.push('No approval is accepted through stdin, flags or this digest.');return {digest:value.digest,text:lines.join('\n'),plan:value};
 }
-export function detectConfigurator(){return {scope:'planner_capabilities_only',platform:process.platform,commands:['detect','plan','validate','review','status'],isolationBackend:null,approvalChannel:null,runtimeProbePerformed:false,filesystemProbePerformed:false,applyAvailable:false,credentialInputAccepted:false};}
+export function detectConfigurator(){return {scope:'planner_capabilities_only',platform:process.platform,commands:['detect','plan','validate','review','status','wizard'],isolationBackend:null,approvalChannel:null,runtimeProbePerformed:false,filesystemProbePerformed:false,applyAvailable:false,credentialInputAccepted:false};}
 export function statusPlan(plan){if(plan)validatePlan(plan);return {scope:'plan_only_not_runtime',configuration:plan?'draft':'not_loaded',approval:plan?'pending':'none',digest:plan?.digest??null,process:'unknown',connection:'unknown',evidence:'none',isolation:plan?.assessment.profiles.map(p=>({profileId:p.profileId,...p.isolation}))??[],executable:false};}
 export function parsePlannerJson(bytes){
  if(!Buffer.isBuffer(bytes)||bytes.length>32768)throw Error('CONFIGURATOR_INPUT_LIMIT');

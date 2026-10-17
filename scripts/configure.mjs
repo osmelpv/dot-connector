@@ -4,8 +4,11 @@ import {open,lstat} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import path from 'node:path';
 import {createPlan,validatePlan,reviewPlan,detectConfigurator,statusPlan,parsePlannerJson} from '../src/configurator.mjs';
+import {interactiveWizard} from '../src/configurator-wizard.mjs';
 const args=process.argv.slice(2),command=args.shift();
 try{
+ if(command==='wizard'){if(args.length)throw Error('CONFIGURATOR_OPTIONS');const result=await interactiveWizard();process.stdout.write(JSON.stringify({schemaVersion:1,command:'plan',ok:true,result})+'\n');}
+ else {
  if(!['detect','plan','validate','review','status'].includes(command))throw Error('CONFIGURATOR_COMMAND_UNAVAILABLE');
  let file,format='json';const seen=new Set();
  while(args.length){const arg=args.shift();if(seen.has(arg))throw Error('CONFIGURATOR_OPTIONS');seen.add(arg);
@@ -28,4 +31,5 @@ try{
  }
  const result=command==='detect'?detectConfigurator():command==='plan'?createPlan(input):command==='validate'?validatePlan(input):command==='review'?reviewPlan(input):statusPlan(input);
  process.stdout.write(format==='human'?result.text+'\n':JSON.stringify({schemaVersion:1,command,ok:true,result})+'\n');
-}catch(error){const message=error.message??'',code=/^(CONFIGURATOR_|PLAN_|QUERY_)[A-Z_]+$/.test(message)?message:'CONFIGURATOR_FAILED';process.stdout.write(JSON.stringify({schemaVersion:1,command:['detect','plan','validate','review','status'].includes(command)?command:null,ok:false,error:code})+'\n');process.exitCode=1;}
+}
+}catch(error){const message=error.message??'',code=/^(CONFIGURATOR_|PLAN_|QUERY_)[A-Z_]+$/.test(message)?message:'CONFIGURATOR_FAILED';process.stdout.write(JSON.stringify({schemaVersion:1,command:['detect','plan','validate','review','status','wizard'].includes(command)?command:null,ok:false,error:code,...(code==='CONFIGURATOR_TTY_REQUIRED'?{help:'Run wizard in an interactive terminal, or use plan --file /absolute/request.json --json for agents.'}:{})})+'\n');process.exitCode=1;}

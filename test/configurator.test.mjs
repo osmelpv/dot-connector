@@ -13,7 +13,7 @@ test('draft defaults deny, project isolation unavailable, no runtime authority',
  const a=p.assessment.profiles[0];assert.equal(a.available,false);assert.deepEqual(a.isolation,{required:true,state:'unavailable',backend:null});assert.equal(a.terminalInput,false);assert(p.assessment.blockers.includes('approval_channel_unavailable'));assert.equal(p.approval,'pending');assert.equal(validatePlan(p).valid,true);
 });
 test('separate profiles and permissions are explicit, query cannot acquire write/execute',()=>{
- const r=request();r.profiles.push({...r.profiles[0],profileId:'personal',mode:'Personal',permissions:{execute:true},destination:{kind:'remote',id:'future-target'}});const p=createPlan(r);
+ const r=request();r.profiles.push({...r.profiles[0],profileId:'personal',folder:{platform:'linux',path:'/fixture/personal'},mode:'Personal',permissions:{execute:true},destination:{kind:'remote',id:'future-target'}});const p=createPlan(r);
  assert.equal(p.assessment.profiles.length,2);assert.notEqual(p.assessment.profiles[0].namespace,p.assessment.profiles[1].namespace);assert(p.assessment.pendingActions.some(x=>x.profileId==='personal'&&x.action==='execute'));
  for(const permission of ['execute','modify_files']){const q=request();q.profiles[0].mode='Consulta';q.profiles[0].permissions={[permission]:true};assert.throws(()=>createPlan(q),/QUERY_CAPABILITY_FORBIDDEN/);}
 });
