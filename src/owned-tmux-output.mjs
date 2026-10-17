@@ -6,9 +6,14 @@ export async function createOwnedTmuxOutput({identity,validate,geometry,spawnCon
  await validate();if(await geometry()!=='80 24')throw Error('OUTPUT_GEOMETRY_CHANGED');
  const bound=Object.freeze(Object.fromEntries(['machineId','projectId','incarnation','session','pane'].map(k=>[k,identity[k]])));
  const journal=new OrderedOutputJournal({...bound,streamEpoch:randomUUID()},{version:2});
- let child,closed=false,ready=false,pending=Buffer.alloc(0),resolveReady,rejectReady,closing,exited=false;
+ let child,closed=false,ready=false,pending=Buffer.alloc(0),resolveReady,rejectReady,closing,exited=false,spawned=false,spawnFailed=false,joinedConfirmed=false;
  const started=new Promise((a,b)=>{resolveReady=a;rejectReady=b;});
- const fail=code=>{if(closed)return;closed=true;pending=Buffer.alloc(0);journal.close();rejectReady(Error(code));if(child&&!exited)child.kill('SIGTERM');};
+ const signal=kind=>{
+  if(!child||exited||spawnFailed)return;
+  // Delivery failure is not exit evidence. Keep cleanup bounded and wait for close.
+  try{child.kill(kind);}catch{}
+ };
+ const fail=(code,terminate=true)=>{if(closed)return;closed=true;pending=Buffer.alloc(0);journal.close();rejectReady(Error(code));if(terminate)signal('SIGTERM');};
  const parse=line=>{
   const text=line.toString('latin1');
   if(text.startsWith('%output ')){
@@ -29,15 +34,37 @@ export async function createOwnedTmuxOutput({identity,validate,geometry,spawnCon
   throw Error('OUTPUT_CONTROL_UNSUPPORTED');
  };
  child=spawnControl();
- const joined=new Promise(resolve=>{child.once('error',()=>{fail('OUTPUT_CONTROL_START');exited=true;resolve();});child.once('close',()=>{exited=true;fail('OUTPUT_OWNER_CLOSED');resolve();});});
- child.stderr.on('data',()=>fail('OUTPUT_CONTROL_ERROR'));
- child.stdout.on('data',chunk=>{
+ child.once('spawn',()=>{spawned=true;});
+ child.once('exit',()=>{exited=true;fail('OUTPUT_OWNER_CLOSED',false);});
+ // Node error also covers failed kill/send/abort. Never resolve the join here.
+ // Keep the listener for repeated signal errors, including after a timeout.
+ child.on('error',()=>{
+  spawnFailed=!spawned&&!ready&&child.pid===undefined;
+  fail(spawnFailed?'OUTPUT_CONTROL_START':'OUTPUT_CONTROL_ERROR',false);
+ });
+ const joined=new Promise(resolve=>{child.once('close',()=>{
+  exited=true;joinedConfirmed=true;fail('OUTPUT_OWNER_CLOSED',false);resolve();
+ });});
+ child.stderr?.on('data',()=>fail('OUTPUT_CONTROL_ERROR'));
+ child.stdout?.on('data',chunk=>{
   if(closed)return;
   try{if(!Buffer.isBuffer(chunk)||chunk.length>65536)throw Error('OUTPUT_INGRESS_LIMIT');let start=0,count=0;
    while(start<chunk.length){const n=chunk.indexOf(10,start),end=n<0?chunk.length:n;if(pending.length+end-start>32768)throw Error('OUTPUT_LINE_LIMIT');const part=chunk.subarray(start,end);pending=pending.length?Buffer.concat([pending,part]):Buffer.from(part);if(n<0)break;if(++count>64)throw Error('OUTPUT_BURST_LIMIT');const line=pending;pending=Buffer.alloc(0);parse(line);start=n+1;}
   }catch(e){fail(e.message);}
  });
- const close=()=>closing??=(async()=>{closed=true;pending=Buffer.alloc(0);journal.close();rejectReady(Error('OUTPUT_CLOSED'));if(!exited)child.kill('SIGTERM');let timer;await Promise.race([joined,new Promise(r=>{timer=setTimeout(r,3000);})]);clearTimeout(timer);if(!exited){child.kill('SIGKILL');await Promise.race([joined,new Promise(r=>{timer=setTimeout(r,1000);})]);clearTimeout(timer);}child.stdin.destroy();child.stdout.destroy();child.stderr.destroy();return exited;})();
+ const waitForClose=async ms=>{
+  let timer;
+  try{await Promise.race([joined,new Promise(resolve=>{timer=setTimeout(resolve,ms);})]);}
+  finally{clearTimeout(timer);}
+ };
+ const close=()=>closing??=(async()=>{
+  closed=true;pending=Buffer.alloc(0);journal.close();rejectReady(Error('OUTPUT_CLOSED'));
+  signal('SIGTERM');
+  await waitForClose(3000);
+  if(!joinedConfirmed){signal('SIGKILL');await waitForClose(1000);}
+  child.stdin?.destroy();child.stdout?.destroy();child.stderr?.destroy();
+  return joinedConfirmed;
+ })();
  const timer=setTimeout(()=>fail('OUTPUT_START_TIMEOUT'),3000);
  try{await started;}catch(e){await close();throw e;}finally{clearTimeout(timer);}
  const check=async()=>{if(closed)throw Error('OUTPUT_CLOSED');try{await validate();if(await geometry()!=='80 24')throw Error('OUTPUT_GEOMETRY_CHANGED');}catch(e){fail('OUTPUT_OWNER_UNAVAILABLE');throw Error('OUTPUT_OWNER_UNAVAILABLE');}if(closed)throw Error('OUTPUT_CLOSED');};
